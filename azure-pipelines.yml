@@ -1,13 +1,15 @@
 # Go
-# Build your Go project.
+# Build your Go application.
 # Add steps that test, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/go
+# https://docs.microsoft.com/vsts/pipelines/languages/go
 
 trigger:
-  branches:
-    include:
-      - refs/heads/master
-      - refs/tags/*
+- master
+
+pr:
+ branches:
+  include:
+  - master
 
 trigger:
 - master
@@ -38,14 +40,8 @@ steps:
   displayName: 'Set up the Go workspace'
 
 - script: |
-<<<<<<< HEAD
     go version
     go get -v -t -d ./...
     make bootstrap build test lint
   workingDirectory: '$(modulePath)'
   displayName: 'Get dependencies, build, test'
-=======
-     make build
-  workingDirectory: '$(modulePath)'
-  displayName: 'Build'
->>>>>>> Template go repository
