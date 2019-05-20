@@ -29,67 +29,147 @@ import (
 const userAgent string = "Duffle ACI Driver"
 const msiTokenEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
 
-// ACIDriver runs Docker and OCI invocation images in ACI
-type ACIDriver struct {
+// aciDriver runs Docker and OCI invocation images in ACI
+type aciDriver struct {
 	config map[string]string
 	// This property is set to true if Duffle is running in cloud shell
-	inCloudShell bool
-	// If true, this will not actually create ACI instance
-	// Simulate           bool
+	inCloudShell       bool
 	deleteACIResources bool
 	authorizer         autorest.Authorizer
 	subscriptionID     string
-	// out                io.Writer
+	verbose            bool
+	clientID           string
+	clientSecret       string
+	tenantID           string
+	applicationID      string
+	aciRG              string
+	createRG           bool
+	aciLocation        string
+	aciName            string
+	msiType            string
+	msiResource        azure.Resource
+	userMSIScope       string
+	userMSIRole        string
 }
 
 // Config returns the ACI driver configuration options
-func (d *ACIDriver) Config() map[string]string {
+func (d *aciDriver) Config() map[string]string {
 	return map[string]string{
-		"VERBOSE":                  "Increase verbosity. true, false are supported values",
-		"AZURE_CLIENT_ID":          "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"AZURE_CLIENT_SECRET":      "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"AZURE_TENANT_ID":          "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
-		"AZURE_SUBSCRIPTION_ID":    "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
-		"AZURE_APP_ID":             "Azure Applications Id - this is the application to be used to authenticate to Azure",
-		"ACI_RESOURCE_GROUP":       "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
-		"ACI_LOCATION":             "The location to create the ACI Instance in",
-		"ACI_NAME":                 "The name of the ACI instance to create - if not specified a name will be generated",
-		"ACI_DO_NOT_DELETE":        "Do not delete RG and ACI instance created - useful for debugging - only deletes RG if it was created by the driver",
-		"ACI_MSI_TYPE":             "If this is set to user or system the created ACI Container Group will be launched with MSI",
-		"ACI_SYSTEM_MSI_ROLE":      "The role to be asssigned to System MSI User - used if ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
-		"ACI_SYSTEM_MSI_SCOPE":     "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
-		"ACI_USER_MSI_RESOURCE_ID": "The resource Id of the MSI User - required if ACI_MSI_TYPE == User",
+		"DUFFLE_ACI_DRIVER_VERBOSE":              "Increase verbosity. true, false are supported values",
+		"DUFFLE_ACI_DRIVER_CLIENT_ID":            "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_CLIENT_SECRET":        "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_TENANT_ID":            "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID":      "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
+		"DUFFLE_ACI_DRIVER_APP_ID":               "Azure Application Id - this is the application to be used to authenticate to Azure",
+		"DUFFLE_ACI_DRIVER_RESOURCE_GROUP":       "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
+		"DUFFLE_ACI_DRIVER_LOCATION":             "The location to create the ACI Instance in",
+		"DUFFLE_ACI_DRIVER_NAME":                 "The name of the ACI instance to create - if not specified a name will be generated",
+		"DUFFLE_ACI_DRIVER_DO_NOT_DELETE":        "Do not delete RG and ACI instance created - useful for debugging - only deletes RG if it was created by the driver",
+		"DUFFLE_ACI_DRIVER_MSI_TYPE":             "If this is set to user or system the created ACI Container Group will be launched with MSI",
+		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE":      "The role to be asssigned to System MSI User - used if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
+		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE":     "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
+		"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID": "The resource Id of the MSI User - required if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == User",
 	}
 }
 
-// SetConfig sets ACI driver configuration
-func (d *ACIDriver) SetConfig(settings map[string]string) {
-	d.config = settings
+// NewACIDriver creates a new ACI Driver instance
+func NewACIDriver() (driver.Driver, error) {
+	d := &aciDriver{
+		msiResource: azure.Resource{},
+	}
+	for env := range d.Config() {
+		d.config[env] = os.Getenv(env)
+	}
+	d.verbose = len(d.config["DUFFLE_ACI_DRIVER_VERBOSE"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_VERBOSE"]) == "true"
+	d.log("verbose:", d.verbose)
+	d.deleteACIResources = len(d.config["DUFFLE_ACI_DRIVER_DO_NOT_DELETE"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_DO_NOT_DELETE"]) == "true"
+	d.log("Delete Resources:", d.deleteACIResources)
+	d.inCloudShell = len(os.Getenv("ACC_CLOUD")) > 0
+	d.log("In Cloud Shell:", d.inCloudShell)
+	d.clientID = d.config["DUFFLE_ACI_DRIVER_CLIENT_ID"]
+	d.log("clientID:", d.clientID)
+	d.clientSecret = d.config["DUFFLE_ACI_DRIVER_CLIENT_SECRET"]
+	d.log("clientSecret:", d.clientSecret)
+	d.tenantID = d.config["DUFFLE_ACI_DRIVER_TENANT_ID"]
+	d.log("tenantID:", d.tenantID)
+	d.applicationID = d.config["DUFFLE_ACI_DRIVER_APP_ID"]
+	d.log("applicationID:", d.applicationID)
+	d.subscriptionID = d.config["AZURE_SUBSCRIPTION_ID"]
+	d.log("Subscription:", d.subscriptionID)
+	d.aciRG = d.config["DUFFLE_ACI_DRIVER_RESOURCE_GROUP"]
+	d.log("Resource Group:", d.aciRG)
+	d.aciLocation = strings.ToLower(strings.Replace(d.config["DUFFLE_ACI_DRIVER_LOCATION"], " ", "", -1))
+	d.log("Location:", d.aciLocation)
+	if len(d.aciRG) == 0 && len(d.aciLocation) == 0 {
+		return nil, errors.New("ACI Driver requires DUFFLE_ACI_DRIVER_LOCATION environment variable or an existing Resource Group in DUFFLE_ACI_DRIVER_RESOURCE_GROUP")
+	}
+
+	d.createRG = len(d.aciRG) == 0
+	if d.createRG {
+		d.aciRG = uuid.New().String()
+		d.log("Resource Group:", d.aciRG)
+	}
+
+	d.aciName = d.config["DUFFLE_ACI_DRIVER_NAME"]
+	if len(d.aciName) == 0 {
+		d.aciName = fmt.Sprintf("duffle-%s", uuid.New().String())
+	}
+
+	d.log("ACI Name:", d.aciName)
+	if len(d.config["DUFFLE_ACI_DRIVER_MSI_TYPE"]) > 0 {
+		switch strings.ToLower(d.config["DUFFLE_ACI_DRIVER_MSI_TYPE"]) {
+		case "system":
+			d.msiType = "system"
+			scope := fmt.Sprintf("/subscriptions/%s/resourcegroups/%s", d.subscriptionID, d.aciRG)
+			role := "Contributor"
+			if len(d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE"]) > 0 {
+				role = d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE"]
+			}
+
+			d.log("MSI Role:", role)
+			d.userMSIScope = scope
+			if len(d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE"]) > 0 {
+				scope = d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE"]
+			}
+
+			d.userMSIRole = role
+			d.log("MSI Scope:", scope)
+
+		case "user":
+			d.msiType = "user"
+			userMSIResourceID := d.config["DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID"]
+			if len(userMSIResourceID) == 0 {
+				return nil, errors.New("ACI Driver requires DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable when DUFFLE_ACI_DRIVER_MSI_TYPE is set to user")
+			}
+
+			resource, err := azure.ParseResourceID(userMSIResourceID)
+			if err != nil {
+				return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable parsing error: %v ", err)
+			}
+
+			d.msiResource = resource
+			d.log("User MSI Resource ID:", userMSIResourceID)
+
+		default:
+			return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_MSI_TYPE environment variable unknown value: %s ", d.config["DUFFLE_ACI_DRIVER_MSI_TYPE"])
+		}
+		d.log("MSI Type:", d.msiType)
+	}
+
+	return d, nil
 }
 
 // Run executes the ACI driver
-func (d *ACIDriver) Run(op *driver.Operation) error {
+func (d *aciDriver) Run(op *driver.Operation) error {
 	return d.exec(op)
 }
 
 // Handles indicates that the ACI driver supports "docker" and "oci"
-func (d *ACIDriver) Handles(dt string) bool {
+func (d *aciDriver) Handles(dt string) bool {
 	return dt == driver.ImageTypeDocker || dt == driver.ImageTypeOCI
 }
 
-func (d *ACIDriver) exec(op *driver.Operation) (reterr error) {
-	//d.out = op.Out
-	d.deleteACIResources = true
-	if len(d.config["ACI_DO_NOT_DELETE"]) > 0 && strings.ToLower(d.config["ACI_DO_NOT_DELETE"]) == "true" {
-		d.deleteACIResources = false
-	}
-
-	d.log("Delete Resources:", d.deleteACIResources)
-	d.inCloudShell = len(os.Getenv("ACC_CLOUD")) > 0
-	d.log("In Cloud Shell:", d.inCloudShell)
-	// if d.Simulate {
-	// 	return nil
-	// }
+func (d *aciDriver) exec(op *driver.Operation) (reterr error) {
 
 	err := d.loginToAzure()
 	if err != nil {
@@ -109,19 +189,12 @@ func (d *ACIDriver) exec(op *driver.Operation) (reterr error) {
 	return nil
 }
 
-func (d *ACIDriver) loginToAzure() error {
-	clientID := d.config["AZURE_CLIENT_ID"]
-	clientSecret := d.config["AZURE_CLIENT_SECRET"]
-	tenantID := d.config["AZURE_TENANT_ID"]
-	applicationID := d.config["AZURE_APP_ID"]
-	d.log("clientID:", clientID)
-	d.log("clientSecret:", clientSecret)
-	d.log("tenantID:", tenantID)
-	d.log("applicationID:", applicationID)
+func (d *aciDriver) loginToAzure() error {
+
 	// Attempt to login with Service Principal
-	if len(clientID) != 0 && len(clientSecret) != 0 && len(tenantID) != 0 {
+	if len(d.clientID) != 0 && len(d.clientSecret) != 0 && len(d.tenantID) != 0 {
 		d.log("Attempting to Login with Service Principal")
-		clientCredentailsConfig := auth.NewClientCredentialsConfig(clientID, clientSecret, tenantID)
+		clientCredentailsConfig := auth.NewClientCredentialsConfig(d.clientID, d.clientSecret, d.tenantID)
 		authorizer, err := clientCredentailsConfig.Authorizer()
 		if err != nil {
 			return fmt.Errorf("Attempt to login to azure with Service Principal failed: %v", err)
@@ -132,9 +205,9 @@ func (d *ACIDriver) loginToAzure() error {
 	}
 
 	// Attempt to login with Device Code
-	if len(applicationID) != 0 && len(tenantID) != 0 {
+	if len(d.applicationID) != 0 && len(d.tenantID) != 0 {
 		d.log("Attempting to Login with Device Code")
-		deviceConfig := auth.NewDeviceFlowConfig(applicationID, tenantID)
+		deviceConfig := auth.NewDeviceFlowConfig(d.applicationID, d.tenantID)
 		authorizer, err := deviceConfig.Authorizer()
 		if err != nil {
 			return fmt.Errorf("Attempt to login to azure with Device Code failed: %v", err)
@@ -173,19 +246,17 @@ func (d *ACIDriver) loginToAzure() error {
 	return errors.New("Cannot login to Azure - no valid credentials provided")
 }
 
-func (d *ACIDriver) setAzureSubscriptionID() error {
-	subscriptionID := d.config["AZURE_SUBSCRIPTION_ID"]
-	d.log("Subscription:", subscriptionID)
+func (d *aciDriver) setAzureSubscriptionID() error {
+
 	subscriptionsClient := d.getSubscriptionsClient()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if len(subscriptionID) != 0 {
-		d.log("Setting Subscription to ", subscriptionID)
-		d.subscriptionID = subscriptionID
-		result, err := subscriptionsClient.Get(ctx, subscriptionID)
+	if len(d.subscriptionID) != 0 {
+		d.log("Checking for Subscription ID:", d.subscriptionID)
+		result, err := subscriptionsClient.Get(ctx, d.subscriptionID)
 		if err != nil {
 			if result.StatusCode == 404 {
-				return fmt.Errorf("Subscription Id: %s not found. Check Value of AZURE_SUBSCRIPTION_ID environment variable", subscriptionID)
+				return fmt.Errorf("Subscription Id: %s not found", d.subscriptionID)
 			}
 			return fmt.Errorf("Attempt to Get Subscription Failed: %v", err)
 		}
@@ -213,44 +284,46 @@ func (d *ACIDriver) setAzureSubscriptionID() error {
 	return nil
 }
 
-func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
+func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 	// GET ACI Config
-	aciRG := d.config["ACI_RESOURCE_GROUP"]
-	aciLocation := d.config["ACI_LOCATION"]
-	aciLocation = strings.ToLower(strings.Replace(aciLocation, " ", "", -1))
-	d.log("Resource Group:", aciRG)
-	d.log("Location:", aciLocation)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if len(aciLocation) > 0 {
-		providersClient := d.getProvidersClient()
-		provider, err := providersClient.Get(ctx, "Microsoft.ContainerInstance", "")
+	groupsClient := d.getGroupsClient()
+	if !d.createRG {
+		rg, err := groupsClient.Get(ctx, d.aciRG)
 		if err != nil {
-			return fmt.Errorf("Error getting provider details for ACI: %v", err)
+			return fmt.Errorf("Checking for existing resource group %s failed with error: %v", d.aciRG, err)
 		}
-
-		for _, t := range *provider.ResourceTypes {
-			if *t.ResourceType == "ContainerGroups" {
-				if !locationIsAvailable(aciLocation, *t.Locations) {
-					return fmt.Errorf("ACI Location is invalid: %v", aciLocation)
-				}
-			}
+		if len(d.aciLocation) == 0 {
+			d.log("Setting aci Location to RG Location:", *rg.Location)
+			d.aciLocation = *rg.Location
 		}
-
-	} else if len(aciRG) == 0 {
-		return errors.New("ACI Driver requires ACI_LOCATION environment variable or an existing Resource Group in ACI_RESOURCE_GROUP")
 	}
 
-	groupsClient := d.getGroupsClient()
-	if len(aciRG) == 0 {
+	// Check that location supports ACI
+
+	providersClient := d.getProvidersClient()
+	provider, err := providersClient.Get(ctx, "Microsoft.ContainerInstance", "")
+	if err != nil {
+		return fmt.Errorf("Error getting provider details for ACI: %v", err)
+	}
+
+	for _, t := range *provider.ResourceTypes {
+		if *t.ResourceType == "ContainerGroups" {
+			if !locationIsAvailable(d.aciLocation, *t.Locations) {
+				return fmt.Errorf("ACI driver location is invalid: %v", d.aciLocation)
+			}
+		}
+	}
+
+	if d.createRG {
 		d.log("Creating Resource Group")
-		aciRG = uuid.New().String()
-		d.log("Resource Group:", aciRG)
 		_, err := groupsClient.CreateOrUpdate(
 			ctx,
-			aciRG,
+			d.aciRG,
 			resources.Group{
-				Location: &aciLocation,
+				Location: &d.aciLocation,
 			})
 		if err != nil {
 			return fmt.Errorf("Failed to create resource group: %v", err)
@@ -259,34 +332,21 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 		defer func() {
 			if d.deleteACIResources {
 				d.log("Deleting Resource Group")
-				future, err := groupsClient.Delete(ctx, aciRG)
+				future, err := groupsClient.Delete(ctx, d.aciRG)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to execute delete resource group %s error: %v\n", aciRG, err)
+					fmt.Fprintf(os.Stderr, "Failed to execute delete resource group %s error: %v\n", d.aciRG, err)
 				}
 
 				err = future.WaitForCompletionRef(ctx, groupsClient.Client)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to delete resource group %s error: %v\n", aciRG, err)
+					fmt.Fprintf(os.Stderr, "Failed to delete resource group %s error: %v\n", d.aciRG, err)
 				} else {
-					d.log("Deleted Resource Group ", aciRG)
+					d.log("Deleted Resource Group ", d.aciRG)
 				}
 
 			}
 
 		}()
-	} else {
-		_, err := groupsClient.Get(ctx, aciRG)
-		if err != nil {
-			return fmt.Errorf("Checking for existing resource group %s failed with error: %v", aciRG, err)
-		}
-
-	}
-
-	aciName := d.config["ACI_NAME"]
-	d.log("ACI Name:", aciName)
-	if len(aciName) == 0 {
-		aciName = fmt.Sprintf("duffle-%s", uuid.New().String())
-		d.log("ACI Name:", aciName)
 	}
 
 	// TODO ACI does not support file copy
@@ -313,12 +373,12 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 			SecureValue: to.StringPtr(strings.Replace(v, "'", "''", -1)),
 		})
 	}
-	identity, err := d.getContainerIdentity(ctx, aciRG)
+	identity, err := d.getContainerIdentity(ctx, d.aciRG)
 	if err != nil {
 		return fmt.Errorf("Failed to get container Identity:%v", err)
 	}
 
-	_, err = d.createInstance(aciName, aciLocation, aciRG, op.Image, env, *identity)
+	_, err = d.createInstance(d.aciName, d.aciLocation, d.aciRG, op.Image, env, *identity)
 	if err != nil {
 		return fmt.Errorf("Error creating ACI Instance:%v", err)
 	}
@@ -333,24 +393,24 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			containerGroupsClient := d.getContainerGroupsClient()
-			_, err := containerGroupsClient.Delete(ctx, aciRG, aciName)
+			_, err := containerGroupsClient.Delete(ctx, d.aciRG, d.aciName)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to delete container error: %v\n", err)
 			}
 
-			d.log("Deleted Container ", aciName)
+			d.log("Deleted Container ", d.aciName)
 		}()
 	}
 
 	// Check if the container is running
-	state, err := d.getContainerState(aciRG, aciName)
+	state, err := d.getContainerState(d.aciRG, d.aciName)
 	if err != nil {
 		return fmt.Errorf("Error getting container state :%v", err)
 	}
 
 	// Get the logs if the container failed immediately
 	if strings.Compare(state, "Failed") == 0 {
-		_, err := d.getContainerLogs(ctx, aciRG, aciName, 0)
+		_, err := d.getContainerLogs(ctx, d.aciRG, d.aciName, 0)
 		if err != nil {
 			return fmt.Errorf("Error getting container logs :%v", err)
 		}
@@ -362,13 +422,13 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 	linesOutput := 0
 	for containerRunning {
 		d.log("Getting Container State")
-		state, err := d.getContainerState(aciRG, aciName)
+		state, err := d.getContainerState(d.aciRG, d.aciName)
 		if err != nil {
 			return fmt.Errorf("Error getting container state :%v", err)
 		}
 
 		if strings.Compare(state, "Running") == 0 {
-			linesOutput, err = d.getContainerLogs(ctx, aciRG, aciName, linesOutput)
+			linesOutput, err = d.getContainerLogs(ctx, d.aciRG, d.aciName, linesOutput)
 			if err != nil {
 				return fmt.Errorf("Error getting container logs :%v", err)
 			}
@@ -378,7 +438,7 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 			time.Sleep(5 * time.Second)
 		} else {
 			if strings.Compare(state, "Succeeded") != 0 {
-				d.getContainerLogs(ctx, aciRG, aciName, linesOutput)
+				d.getContainerLogs(ctx, d.aciRG, d.aciName, linesOutput)
 				return fmt.Errorf("Unexpected Container Status:%s", state)
 			}
 
@@ -387,7 +447,7 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 
 	}
 
-	_, err = d.getContainerLogs(ctx, aciRG, aciName, linesOutput)
+	_, err = d.getContainerLogs(ctx, d.aciRG, d.aciName, linesOutput)
 	if err != nil {
 		return fmt.Errorf("Error getting container logs :%v", err)
 	}
@@ -396,7 +456,7 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 }
 
 // This will only work if the logs dont get truncated because of size.
-func (d *ACIDriver) getContainerLogs(ctx context.Context, aciRG string, aciName string, linesOutput int) (int, error) {
+func (d *aciDriver) getContainerLogs(ctx context.Context, aciRG string, aciName string, linesOutput int) (int, error) {
 	d.log("Getting Logs")
 	containerClient := d.getContainerClient()
 	logs, err := containerClient.ListLogs(ctx, aciRG, aciName, aciName, nil)
@@ -416,130 +476,104 @@ func (d *ACIDriver) getContainerLogs(ctx context.Context, aciRG string, aciName 
 	return noOfLines, nil
 }
 
-func (d *ACIDriver) getContainerIdentity(ctx context.Context, aciRG string) (*identityDetails, error) {
-	useMSI := d.config["ACI_MSI_TYPE"]
-	d.log("MSI Type:", useMSI)
-	userMSIResourceID := d.config["ACI_USER_MSI_RESOURCE_ID"]
-	d.log("User MSI Resource ID:", userMSIResourceID)
-	if len(useMSI) == 0 {
-		return &identityDetails{
-			MSIType: "none",
-		}, nil
-	}
+func (d *aciDriver) getContainerIdentity(ctx context.Context, aciRG string) (*identityDetails, error) {
 
 	// System MSI
-	if strings.ToLower(useMSI) == "system" {
-		scope := fmt.Sprintf("/subscriptions/%s/resourcegroups/%s", d.subscriptionID, aciRG)
-		role := "Contributor"
-		if len(d.config["ACI_SYSTEM_MSI_ROLE"]) > 0 {
-			d.log("System MSI Role:", d.config["ACI_SYSTEM_MSI_ROLE"])
-			role = d.config["ACI_SYSTEM_MSI_ROLE"]
-		}
-		d.log("MSI Role:", role)
+	if d.msiType == "system" {
 
-		if len(d.config["ACI_SYSTEM_MSI_SCOPE"]) > 0 {
-			d.log("System MSI Scope:", d.config["ACI_SYSTEM_MSI_SCOPE"])
-			scope = d.config["ACI_SYSTEM_MSI_SCOPE"]
-		}
-		d.log("MSI Scope:", scope)
+		//TODO Validate Role and Scope
 
 		return &identityDetails{
 			MSIType: "system",
 			Identity: &containerinstance.ContainerGroupIdentity{
 				Type: containerinstance.SystemAssigned,
 			},
-			Scope: &scope,
-			Role:  &role,
+			Scope: &d.userMSIScope,
+			Role:  &d.userMSIRole,
 		}, nil
 	}
 
 	// User MSI
-	if strings.ToLower(useMSI) == "user" {
-		if len(userMSIResourceID) > 0 {
-			resource, err := azure.ParseResourceID(userMSIResourceID)
-			if err != nil {
-				return nil, fmt.Errorf("ACI_USER_MSI_RESOURCE_ID environment variable parsing error: %v ", err)
-			}
-
-			userAssignedIdentitiesClient := d.getUserAssignedIdentitiesClient(resource.SubscriptionID)
-			identity, err := userAssignedIdentitiesClient.Get(ctx, resource.ResourceGroup, resource.ResourceName)
-			if err != nil {
-				return nil, fmt.Errorf("Error getting User Assigned Identity:%s  Error: %v", userMSIResourceID, err)
-			}
-			return &identityDetails{
-				MSIType: "user",
-				Identity: &containerinstance.ContainerGroupIdentity{
-					Type: containerinstance.UserAssigned,
-					UserAssignedIdentities: map[string]*containerinstance.ContainerGroupIdentityUserAssignedIdentitiesValue{
-						*identity.ID: {},
-					},
-				},
-			}, nil
+	if d.msiType == "user" {
+		userAssignedIdentitiesClient := d.getUserAssignedIdentitiesClient(d.msiResource.SubscriptionID)
+		identity, err := userAssignedIdentitiesClient.Get(ctx, d.msiResource.ResourceGroup, d.msiResource.ResourceName)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting User Assigned Identity:%v  Error: %v", d.msiResource, err)
 		}
-
-		return nil, errors.New("ACI Driver requires ACI_USER_MSI_RESOURCE_ID environment variable when ACI_MSI_TYPE is set to user")
+		return &identityDetails{
+			MSIType: "user",
+			Identity: &containerinstance.ContainerGroupIdentity{
+				Type: containerinstance.UserAssigned,
+				UserAssignedIdentities: map[string]*containerinstance.ContainerGroupIdentityUserAssignedIdentitiesValue{
+					*identity.ID: {},
+				},
+			},
+		}, nil
 	}
 
-	return nil, fmt.Errorf("ACI_MSI_TYPE environment variable unknown value: %s ", useMSI)
+	return &identityDetails{
+		MSIType: "none",
+	}, nil
+
 }
 
-func (d *ACIDriver) getSubscriptionsClient() subscriptions.Client {
+func (d *aciDriver) getSubscriptionsClient() subscriptions.Client {
 	subscriptionClient := subscriptions.NewClient()
 	subscriptionClient.Authorizer = d.authorizer
 	subscriptionClient.AddToUserAgent(userAgent)
 	return subscriptionClient
 }
 
-func (d *ACIDriver) getRoleDefinitionsClient(subscriptionID string) authorization.RoleDefinitionsClient {
+func (d *aciDriver) getRoleDefinitionsClient(subscriptionID string) authorization.RoleDefinitionsClient {
 	roleDefinitionsClient := authorization.NewRoleDefinitionsClient(subscriptionID)
 	roleDefinitionsClient.Authorizer = d.authorizer
 	roleDefinitionsClient.AddToUserAgent(userAgent)
 	return roleDefinitionsClient
 }
 
-func (d *ACIDriver) getRoleAssignmentClient(subscriptionID string) authorization.RoleAssignmentsClient {
+func (d *aciDriver) getRoleAssignmentClient(subscriptionID string) authorization.RoleAssignmentsClient {
 	roleAssignmentsClient := authorization.NewRoleAssignmentsClient(subscriptionID)
 	roleAssignmentsClient.Authorizer = d.authorizer
 	roleAssignmentsClient.AddToUserAgent(userAgent)
 	return roleAssignmentsClient
 }
 
-func (d *ACIDriver) getUserAssignedIdentitiesClient(subscriptionID string) msi.UserAssignedIdentitiesClient {
+func (d *aciDriver) getUserAssignedIdentitiesClient(subscriptionID string) msi.UserAssignedIdentitiesClient {
 	userAssignedIdentitiesClient := msi.NewUserAssignedIdentitiesClient(subscriptionID)
 	userAssignedIdentitiesClient.Authorizer = d.authorizer
 	userAssignedIdentitiesClient.AddToUserAgent(userAgent)
 	return userAssignedIdentitiesClient
 }
 
-func (d *ACIDriver) getContainerGroupsClient() containerinstance.ContainerGroupsClient {
+func (d *aciDriver) getContainerGroupsClient() containerinstance.ContainerGroupsClient {
 	containerGroupsClient := containerinstance.NewContainerGroupsClient(d.subscriptionID)
 	containerGroupsClient.Authorizer = d.authorizer
 	containerGroupsClient.AddToUserAgent(userAgent)
 	return containerGroupsClient
 }
 
-func (d *ACIDriver) getContainerClient() containerinstance.ContainerClient {
+func (d *aciDriver) getContainerClient() containerinstance.ContainerClient {
 	containerClient := containerinstance.NewContainerClient(d.subscriptionID)
 	containerClient.Authorizer = d.authorizer
 	containerClient.AddToUserAgent(userAgent)
 	return containerClient
 }
 
-func (d *ACIDriver) getGroupsClient() resources.GroupsClient {
+func (d *aciDriver) getGroupsClient() resources.GroupsClient {
 	groupsClient := resources.NewGroupsClient(d.subscriptionID)
 	groupsClient.Authorizer = d.authorizer
 	groupsClient.AddToUserAgent(userAgent)
 	return groupsClient
 }
 
-func (d *ACIDriver) getProvidersClient() resources.ProvidersClient {
+func (d *aciDriver) getProvidersClient() resources.ProvidersClient {
 	providersClient := resources.NewProvidersClient(d.subscriptionID)
 	providersClient.Authorizer = d.authorizer
 	providersClient.AddToUserAgent(userAgent)
 	return providersClient
 }
 
-func (d *ACIDriver) getContainerState(aciRG string, aciName string) (string, error) {
+func (d *aciDriver) getContainerState(aciRG string, aciName string) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	containerGroupsClient := d.getContainerGroupsClient()
@@ -571,7 +605,7 @@ func checkForMSIEndpoint() bool {
 	return err == nil
 }
 
-func (d *ACIDriver) createContainerGroup(aciName string, aciRG string, containerGroup containerinstance.ContainerGroup) (containerinstance.ContainerGroup, error) {
+func (d *aciDriver) createContainerGroup(aciName string, aciRG string, containerGroup containerinstance.ContainerGroup) (containerinstance.ContainerGroup, error) {
 	containerGroupsClient := d.getContainerGroupsClient()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -588,8 +622,10 @@ func (d *ACIDriver) createContainerGroup(aciName string, aciRG string, container
 	return future.Result(containerGroupsClient)
 }
 
-func (d *ACIDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails) (*containerinstance.ContainerGroup, error) {
-	// if the MSI type is system assigned then need to create the ACI Instance first in order to create the identity and then assign permissions
+func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails) (*containerinstance.ContainerGroup, error) {
+	// ARM does not yet support the ability to create a System MSI and assign role and scope on creation
+	// so if the MSI type is system assigned then need to create the ACI Instance first with an alpine instance in order to create the identity and then assign permissions
+	// The created ACI is then updated to execute the Invocation Image
 	if identity.MSIType == "system" {
 		d.log("Creating ACI to create System Identity")
 		alpine := "alpine:latest"
@@ -673,7 +709,7 @@ func (d *ACIDriver) createInstance(aciName string, aciLocation string, aciRG str
 	return &containerGroup, nil
 }
 
-func (d *ACIDriver) setUpSystemMSIRBAC(principalID *string, scope string, role string) error {
+func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role string) error {
 	d.log("Setting up System MSI Scope ", scope, "Role ", role)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -721,8 +757,8 @@ func (d *ACIDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 	return err
 }
 
-func (d *ACIDriver) log(message ...interface{}) {
-	if len(d.config["VERBOSE"]) > 0 && strings.ToLower(d.config["VERBOSE"]) == "true" {
+func (d *aciDriver) log(message ...interface{}) {
+	if d.verbose {
 		fmt.Println(message...)
 	}
 
@@ -735,7 +771,7 @@ type identityDetails struct {
 	Role     *string
 }
 
-func (d *ACIDriver) getCloudShellToken() (*adal.Token, error) {
+func (d *aciDriver) getCloudShellToken() (*adal.Token, error) {
 
 	MSIEndpoint := os.Getenv("MSI_ENDPOINT")
 	d.log("CloudShell MSI Endpoint", MSIEndpoint)

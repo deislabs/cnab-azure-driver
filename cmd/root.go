@@ -45,13 +45,9 @@ var rootCmd = &cobra.Command{
 				if err != nil {
 					return err
 				}
-				acidriver := getDriver()
-				if configurable, ok := acidriver.(duffleDriver.Configurable); ok {
-					driverCfg := map[string]string{}
-					for env := range configurable.Config() {
-						driverCfg[env] = os.Getenv(env)
-					}
-					configurable.SetConfig(driverCfg)
+				acidriver, err := driver.NewACIDriver()
+				if err != nil {
+					return fmt.Errorf("Error creating ACI Driver: %v", err)
 				}
 				return acidriver.Run(&op)
 			}
@@ -69,12 +65,8 @@ func init() {
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the application version",
+	Short: "Print the aci driver version",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("duffle-aci-driver %s (%s)\n", pkg.Version, pkg.Commit)
 	},
-}
-
-func getDriver() cnabdriver.Driver {
-	return &driver.ACIDriver{}
 }
