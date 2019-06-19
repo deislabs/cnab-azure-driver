@@ -5,12 +5,17 @@ import (
 	"fmt"
 
 	duffleDriver "github.com/deislabs/cnab-go/driver"
+<<<<<<< HEAD
 
 	"github.com/deislabs/duffle-aci-driver/pkg"
 	"github.com/deislabs/duffle-aci-driver/pkg/driver"
 
+=======
+>>>>>>> fixing output
 	"github.com/spf13/cobra"
 
+	"github.com/deislabs/duffle-aci-driver/pkg/driver"
+	"io/ioutil"
 	"os"
 )
 
@@ -23,33 +28,33 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if handles {
 			fmt.Printf("%s,%s\n", duffleDriver.ImageTypeDocker, duffleDriver.ImageTypeOCI)
-		} else {
-
-			fi, err := os.Stdin.Stat()
-			if err != nil {
-				return fmt.Errorf("cannot stat stdin: %v", err)
-			}
-
-			if fi.Size() > 0 {
-				err := json.NewDecoder(os.Stdin).Decode(&op)
-				if err != nil {
-					return err
-				}
-				acidriver := getDriver()
-				if configurable, ok := acidriver.(duffleDriver.Configurable); ok {
-					driverCfg := map[string]string{}
-					for env := range configurable.Config() {
-						driverCfg[env] = os.Getenv(env)
-					}
-					configurable.SetConfig(driverCfg)
-				}
-				return acidriver.Run(&op)
-			}
-			cmd.Usage()
-
+			return nil
 		}
-		return nil
+
+		bytes, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("Error reading from stdin %v", err)
+		}
+
+		if err = json.Unmarshal(bytes, &op); err != nil {
+			return fmt.Errorf("Error getting bundle.json %v", err)
+		}
+
+		acidriver := getDriver()
+		if configurable, ok := acidriver.(duffleDriver.Configurable); ok {
+			driverCfg := map[string]string{}
+			for env := range configurable.Config() {
+				driverCfg[env] = os.Getenv(env)
+			}
+			configurable.SetConfig(driverCfg)
+		}
+
+		fmt.Printf("Running %s action on %s\n", op.Action, op.Installation)
+
+		return acidriver.Run(&op)
+
 	},
+	SilenceUsage: true,
 }
 
 func init() {

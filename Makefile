@@ -85,4 +85,4 @@ endif
 
 .PHONY: goimports
 goimports:
-	find . -name "*.go" | fgrep -v vendor/ | xargs goimports -w -local github.com/deislabs/duffle
+	find . -name "*.go" | fgrep -v vendor/ | xargs goimports -w -local github.com/$(ORG)/$(PROJECT)
