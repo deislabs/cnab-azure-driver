@@ -15,6 +15,9 @@ import (
 	"os"
 )
 
+// Version is the current version of duffle-aci-driver
+var Version string
+
 var handles bool
 
 var rootCmd = &cobra.Command{
@@ -23,6 +26,14 @@ var rootCmd = &cobra.Command{
 	Long:         `A duffle driver to execute CNAB actions using Azure ACI`,
 	RunE:         runRootCmd,
 	SilenceUsage: true,
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the aci driver version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("duffle-aci-driver version:%v \n", Version)
+	},
 }
 
 func runRootCmd(cmd *cobra.Command, args []string) error {
