@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"testing"
 
 	cnabdriver "github.com/deislabs/cnab-go/driver"
@@ -21,6 +22,27 @@ func TestInput(t *testing.T) {
 	assert.Errorf(t, err, "Expected Error when no input provided on stdin")
 	_, err = testUserInput("invalid input", GetOperation)
 	assert.Errorf(t, err, "Expected Error when invalid input provided on stdin")
+	bytes, err := ioutil.ReadFile("testdata/operation-test.json")
+	assert.NoError(t, err, "Error reading from testdata/operation-test.json")
+	op, err := testUserInput(string(bytes), GetOperation)
+	expectedOp := cnabdriver.Operation{
+		Action:       "install",
+		Installation: "test",
+		Parameters: map[string]interface{}{
+			"param1": "value1",
+		},
+		Image:     "testing.azurecr.io/duffle/test:e8966c3c153a525775cbcddd46f778bed25650b4",
+		ImageType: "docker",
+		Revision:  "01DDY0MT808KX0GGZ6SMXN4TW",
+		Environment: map[string]string{
+			"ENV_1": "value 1",
+			"ENV_2": "value 2",
+		},
+		Files: map[string]string{
+			"/cnab/app/image-map.json": "{}",
+		},
+	}
+	assert.True(t, reflect.DeepEqual(&expectedOp, op), "Validating value of operation from stdin failed")
 }
 
 func getOutput(t *testing.T, f func()) string {

@@ -20,7 +20,7 @@ GIT_TAG   := $(shell git describe --tags --always)
 VERSION   ?= ${GIT_TAG}
 # Replace + with -, for Docker image tag compliance
 IMAGE_TAG ?= $(subst +,-,$(VERSION))
-LDFLAGS   += -X github.com/$(ORG)/$(PROJECT)/pkg/version.Version=$(VERSION)
+LDFLAGS   += -X main.Version=$(VERSION)
 
 .PHONY: default
 default: build
@@ -85,4 +85,4 @@ endif
 
 .PHONY: goimports
 goimports:
-	find . -name "*.go" | fgrep -v vendor/ | xargs goimports -w -local github.com/deislabs/duffle
+	find . -name "*.go" | fgrep -v vendor/ | xargs goimports -w -local github.com/$(ORG)/$(PROJECT)

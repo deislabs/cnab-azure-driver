@@ -75,17 +75,24 @@ func (d *aciDriver) Config() map[string]string {
 // NewACIDriver creates a new ACI Driver instance
 func NewACIDriver() (driver.Driver, error) {
 	d := &aciDriver{
+		config:      map[string]string{},
 		msiResource: azure.Resource{},
 	}
+	d.inCloudShell = len(os.Getenv("ACC_CLOUD")) > 0
+	d.log("In Cloud Shell:", d.inCloudShell)
+	// if d.inCloudShell {
+	// 	d.getSettingsFromCloudShellConfig()
+	// }
+
 	for env := range d.Config() {
 		d.config[env] = os.Getenv(env)
 	}
 	d.verbose = len(d.config["DUFFLE_ACI_DRIVER_VERBOSE"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_VERBOSE"]) == "true"
+	fmt.Println("VERBOSE:", d.config["DUFFLE_ACI_DRIVER_VERBOSE"])
 	d.log("verbose:", d.verbose)
 	d.deleteACIResources = len(d.config["DUFFLE_ACI_DRIVER_DO_NOT_DELETE"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_DO_NOT_DELETE"]) == "true"
+
 	d.log("Delete Resources:", d.deleteACIResources)
-	d.inCloudShell = len(os.Getenv("ACC_CLOUD")) > 0
-	d.log("In Cloud Shell:", d.inCloudShell)
 	d.clientID = d.config["DUFFLE_ACI_DRIVER_CLIENT_ID"]
 	d.log("clientID:", d.clientID)
 	d.clientSecret = d.config["DUFFLE_ACI_DRIVER_CLIENT_SECRET"]
@@ -144,20 +151,28 @@ func NewACIDriver() (driver.Driver, error) {
 
 			resource, err := azure.ParseResourceID(userMSIResourceID)
 			if err != nil {
-				return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable parsing error: %v ", err)
+				return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable parsing error: %v", err)
+			}
+
+			if strings.ToLower(resource.Provider) != "microsoft.managedidentity" || strings.ToLower(resource.ResourceType) != "userassignedidentities" {
+				return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable RP type should be Microsoft.ManagedIdentity/userAssignedIdentities got: %s/%s", resource.Provider, resource.ResourceType)
 			}
 
 			d.msiResource = resource
 			d.log("User MSI Resource ID:", userMSIResourceID)
 
 		default:
-			return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_MSI_TYPE environment variable unknown value: %s ", d.config["DUFFLE_ACI_DRIVER_MSI_TYPE"])
+			return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_MSI_TYPE environment variable unknown value: %s", d.config["DUFFLE_ACI_DRIVER_MSI_TYPE"])
 		}
 		d.log("MSI Type:", d.msiType)
 	}
 
 	return d, nil
 }
+
+// func (d *aciDriver) getSettingsFromCloudShellConfig {
+	
+// }
 
 // Run executes the ACI driver
 func (d *aciDriver) Run(op *driver.Operation) error {
