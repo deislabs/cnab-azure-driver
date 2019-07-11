@@ -3,7 +3,7 @@ ORG             := deislabs
 BINDIR          := $(CURDIR)/bin
 GOFLAGS         :=
 LDFLAGS         := -w -s
-TESTFLAGS       :=
+TESTFLAGS       := -v
 INSTALL_DIR     := /usr/local/bin
 
 ifeq ($(OS),Windows_NT)
@@ -20,7 +20,7 @@ GIT_TAG   := $(shell git describe --tags --always)
 VERSION   ?= ${GIT_TAG}
 # Replace + with -, for Docker image tag compliance
 IMAGE_TAG ?= $(subst +,-,$(VERSION))
-LDFLAGS   += -X github.com/$(ORG)/$(PROJECT)/pkg/version.Version=$(VERSION)
+LDFLAGS   += -X main.Version=$(VERSION)
 
 .PHONY: default
 default: build
@@ -56,6 +56,10 @@ debug:
 test:
 	go test $(TESTFLAGS) ./...
 
+.PHONY: test-in-azure
+test-in-azure:
+	go test $(TESTFLAGS) ./pkg/driver -args -runazuretest
+
 .PHONY: lint
 lint:
 	golangci-lint run --config ./golangci.yml
@@ -64,11 +68,6 @@ HAS_DEP          := $(shell $(CHECK) dep)
 HAS_GOLANGCI     := $(shell $(CHECK) golangci-lint)
 HAS_GOIMPORTS    := $(shell $(CHECK) goimports)
 GOLANGCI_VERSION := v1.16.0
-
-.PHONY: build-drivers
-build-drivers:
-	cp drivers/azure-vm/$(PROJECT)-azvm.sh bin/$(PROJECT)-azvm
-	cd drivers/azure-vm && pip3 install -r requirements.txt
 
 .PHONY: bootstrap
 bootstrap:
@@ -85,4 +84,4 @@ endif
 
 .PHONY: goimports
 goimports:
-	find . -name "*.go" | fgrep -v vendor/ | xargs goimports -w -local github.com/deislabs/duffle
+	find . -name "*.go" | fgrep -v vendor/ | xargs goimports -w -local github.com/$(ORG)/$(PROJECT)

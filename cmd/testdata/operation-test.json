@@ -1,0 +1,17 @@
+{
+    "installation_name": "test",
+    "revision": "01DDY0MT808KX0GGZ6SMXN4TW",
+    "action": "install",
+    "parameters": {
+        "param1": "value1"
+    },
+    "image": "testing.azurecr.io/duffle/test:e8966c3c153a525775cbcddd46f778bed25650b4",
+    "image_type": "docker",
+    "environment": {
+        "ENV_1": "value 1",
+        "ENV_2": "value 2"
+    },
+    "files": {
+        "/cnab/app/image-map.json": "{}"
+    }
+}

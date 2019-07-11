@@ -17,6 +17,6 @@ vendor/
 .vimrc
 *.cnab
 __pycache__/
-/duffle
+/duffle-aci-driver
 .vscode/settings.json
 /bin
