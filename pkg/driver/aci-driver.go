@@ -55,16 +55,17 @@ type aciDriver struct {
 // Config returns the ACI driver configuration options
 func (d *aciDriver) Config() map[string]string {
 	return map[string]string{
-		"DUFFLE_ACI_DRIVER_VERBOSE":              "Increase verbosity. true, false are supported values",
-		"DUFFLE_ACI_DRIVER_CLIENT_ID":            "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_CLIENT_SECRET":        "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_TENANT_ID":            "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID":      "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
-		"DUFFLE_ACI_DRIVER_APP_ID":               "Azure Application Id - this is the application to be used to authenticate to Azure",
-		"DUFFLE_ACI_DRIVER_RESOURCE_GROUP":       "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
-		"DUFFLE_ACI_DRIVER_LOCATION":             "The location to create the ACI Instance in",
-		"DUFFLE_ACI_DRIVER_NAME":                 "The name of the ACI instance to create - if not specified a name will be generated",
-		"DUFFLE_ACI_DRIVER_DO_NOT_DELETE":        "Do not delete RG and ACI instance created - useful for debugging - only deletes RG if it was created by the driver",
+		"DUFFLE_ACI_DRIVER_VERBOSE":          "Increase verbosity. true, false are supported values",
+		"DUFFLE_ACI_DRIVER_CLIENT_ID":        "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_CLIENT_SECRET":    "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_TENANT_ID":        "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID":  "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
+		"DUFFLE_ACI_DRIVER_APP_ID":           "Azure Application Id - this is the application to be used to authenticate to Azure",
+		"DUFFLE_ACI_DRIVER_RESOURCE_GROUP":   "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
+		"DUFFLE_ACI_DRIVER_LOCATION":         "The location to create the ACI Instance in",
+		"DUFFLE_ACI_DRIVER_NAME":             "The name of the ACI instance to create - if not specified a name will be generated",
+		"DUFFLE_ACI_DRIVER_DELETE_RESOURCES": "Delete RG and ACI instance created - default is true useful to set to false for debugging - only deletes RG if it was created by the driver",
+		//TODO add support for the invocation image to receive the users token if running in CloudShell
 		"DUFFLE_ACI_DRIVER_MSI_TYPE":             "If this is set to user or system the created ACI Container Group will be launched with MSI",
 		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE":      "The role to be asssigned to System MSI User - used if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
 		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE":     "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
@@ -90,7 +91,10 @@ func NewACIDriver() (driver.Driver, error) {
 	d.verbose = len(d.config["DUFFLE_ACI_DRIVER_VERBOSE"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_VERBOSE"]) == "true"
 	fmt.Println("VERBOSE:", d.config["DUFFLE_ACI_DRIVER_VERBOSE"])
 	d.log("verbose:", d.verbose)
-	d.deleteACIResources = len(d.config["DUFFLE_ACI_DRIVER_DO_NOT_DELETE"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_DO_NOT_DELETE"]) == "true"
+	d.deleteACIResources = true
+	if len(d.config["DUFFLE_ACI_DRIVER_DELETE_RESOURCES"]) > 0 && (strings.ToLower(d.config["DUFFLE_ACI_DRIVER_DELETE_RESOURCES"]) == "false") {
+		d.deleteACIResources = false
+	}
 
 	d.log("Delete Resources:", d.deleteACIResources)
 	d.clientID = d.config["DUFFLE_ACI_DRIVER_CLIENT_ID"]
@@ -101,13 +105,15 @@ func NewACIDriver() (driver.Driver, error) {
 	d.log("tenantID:", d.tenantID)
 	d.applicationID = d.config["DUFFLE_ACI_DRIVER_APP_ID"]
 	d.log("applicationID:", d.applicationID)
-	d.subscriptionID = d.config["AZURE_SUBSCRIPTION_ID"]
+	d.subscriptionID = d.config["DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID"]
 	d.log("Subscription:", d.subscriptionID)
+	// TODO get default subscription from az cli
 	d.aciRG = d.config["DUFFLE_ACI_DRIVER_RESOURCE_GROUP"]
 	d.log("Resource Group:", d.aciRG)
 	d.aciLocation = strings.ToLower(strings.Replace(d.config["DUFFLE_ACI_DRIVER_LOCATION"], " ", "", -1))
 	d.log("Location:", d.aciLocation)
 	if len(d.aciRG) == 0 && len(d.aciLocation) == 0 {
+		// TODO check if running in cloudshell or cli configured and defaults are set
 		return nil, errors.New("ACI Driver requires DUFFLE_ACI_DRIVER_LOCATION environment variable or an existing Resource Group in DUFFLE_ACI_DRIVER_RESOURCE_GROUP")
 	}
 
@@ -170,10 +176,6 @@ func NewACIDriver() (driver.Driver, error) {
 	return d, nil
 }
 
-// func (d *aciDriver) getSettingsFromCloudShellConfig {
-	
-// }
-
 // Run executes the ACI driver
 func (d *aciDriver) Run(op *driver.Operation) error {
 	return d.exec(op)
@@ -186,7 +188,7 @@ func (d *aciDriver) Handles(dt string) bool {
 
 func (d *aciDriver) exec(op *driver.Operation) (reterr error) {
 
-	err := d.loginToAzure()
+	err := d.setAuthorizer()
 	if err != nil {
 		return fmt.Errorf("cannot Login To Azure: %v", err)
 	}
@@ -204,7 +206,9 @@ func (d *aciDriver) exec(op *driver.Operation) (reterr error) {
 	return nil
 }
 
-func (d *aciDriver) loginToAzure() error {
+func (d *aciDriver) setAuthorizer() error {
+
+	// TODO add support for cli config login
 
 	// Attempt to login with Service Principal
 	if len(d.clientID) != 0 && len(d.clientSecret) != 0 && len(d.tenantID) != 0 {
@@ -212,7 +216,7 @@ func (d *aciDriver) loginToAzure() error {
 		clientCredentailsConfig := auth.NewClientCredentialsConfig(d.clientID, d.clientSecret, d.tenantID)
 		authorizer, err := clientCredentailsConfig.Authorizer()
 		if err != nil {
-			return fmt.Errorf("Attempt to login to azure with Service Principal failed: %v", err)
+			return fmt.Errorf("Attempt to set Authorizer with Service Principal failed: %v", err)
 		}
 
 		d.authorizer = authorizer
@@ -225,7 +229,7 @@ func (d *aciDriver) loginToAzure() error {
 		deviceConfig := auth.NewDeviceFlowConfig(d.applicationID, d.tenantID)
 		authorizer, err := deviceConfig.Authorizer()
 		if err != nil {
-			return fmt.Errorf("Attempt to login to azure with Device Code failed: %v", err)
+			return fmt.Errorf("Attempt to set Authorizer with Device Code failed: %v", err)
 		}
 
 		fmt.Println("Logged in with Device Code")
@@ -238,7 +242,7 @@ func (d *aciDriver) loginToAzure() error {
 		d.log("Attempting to Login with CloudShell")
 		token, err := d.getCloudShellToken()
 		if err != nil {
-			return fmt.Errorf("Attempt to login to Azure with CloudShell failed: %v", err)
+			return fmt.Errorf("Attempt to get CloudShell token failed: %v", err)
 		}
 
 		d.authorizer = autorest.NewBearerAuthorizer(token)
@@ -251,14 +255,21 @@ func (d *aciDriver) loginToAzure() error {
 		msiConfig := auth.NewMSIConfig()
 		authorizer, err := msiConfig.Authorizer()
 		if err != nil {
-			return fmt.Errorf("Attempt to login to azure with MSI failed: %v", err)
+			return fmt.Errorf("Attempt to set Authorizer with MSI failed: %v", err)
 		}
 
 		d.authorizer = authorizer
 		return nil
 	}
 
-	return errors.New("Cannot login to Azure - no valid credentials provided")
+	// Attempt to Login using azure CLI
+	authorizer, err := auth.NewAuthorizerFromCLI()
+	if err == nil {
+		d.authorizer = authorizer
+		return nil
+	}
+
+	return fmt.Errorf("Cannot login to Azure - no valid credentials provided or available, failed to login with Azure cli: %v", err)
 }
 
 func (d *aciDriver) setAzureSubscriptionID() error {
@@ -497,6 +508,7 @@ func (d *aciDriver) getContainerIdentity(ctx context.Context, aciRG string) (*id
 	if d.msiType == "system" {
 
 		//TODO Validate Role and Scope
+		//TODO Check to see if user has permission to create RoleAssignment
 
 		return &identityDetails{
 			MSIType: "system",
@@ -751,7 +763,7 @@ func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 	attempts := 5
 	var err error
 	for i := 0; i < attempts; i++ {
-		d.log("Creating Role Attempt", i)
+		d.log("Creating RoleAssignment Attempt", i)
 		roleAssignmentsClient := d.getRoleAssignmentClient(d.subscriptionID)
 		_, raerror := roleAssignmentsClient.Create(ctx, scope, uuid.New().String(), authorization.RoleAssignmentCreateParameters{
 			Properties: &authorization.RoleAssignmentProperties{
@@ -760,8 +772,8 @@ func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 			},
 		})
 		if raerror != nil {
-			err = fmt.Errorf("Error creating RoleDefinition Role:%s for Scope:%s Error: %v", role, scope, raerror)
-			d.log("Creating Role Attempt:", i, "Error:", err)
+			err = fmt.Errorf("Error creating RoleAssignment Role:%s for Scope:%s Error: %v", role, scope, raerror)
+			d.log("Creating RoleAssignment Attempt:", i, "Error:", err)
 			time.Sleep(20 * time.Second)
 			continue
 		}

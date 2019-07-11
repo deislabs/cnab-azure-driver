@@ -1,0 +1,18 @@
+{
+    "installation_name": "test-aci",
+    "revision": "",
+    "action": "install",
+    "parameters": {
+    },
+    "image": "simongdavies/helloworld-aci-cnab:c25f7f06fbc608e7bcfabd7e2700c5976e824286",
+    "image_type": "docker",
+    "environment": {
+        "CNAB_INSTALLATION_NAME": "test-aci",
+        "CNAB_ACTION": "install",
+        "CNAB_BUNDLE_NAME" : "helloworld-aci",
+	    "CNAB_BUNDLE_VERSION":"0.1.0"
+    },
+    "files": {
+        "/cnab/app/image-map.json": "{}"
+    }
+}

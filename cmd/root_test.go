@@ -25,6 +25,7 @@ func TestInput(t *testing.T) {
 	bytes, err := ioutil.ReadFile("testdata/operation-test.json")
 	assert.NoError(t, err, "Error reading from testdata/operation-test.json")
 	op, err := testUserInput(string(bytes), GetOperation)
+	assert.NoError(t, err, "Testing user input")
 	expectedOp := cnabdriver.Operation{
 		Action:       "install",
 		Installation: "test",

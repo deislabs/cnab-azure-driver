@@ -3,7 +3,7 @@ ORG             := deislabs
 BINDIR          := $(CURDIR)/bin
 GOFLAGS         :=
 LDFLAGS         := -w -s
-TESTFLAGS       :=
+TESTFLAGS       := -v
 INSTALL_DIR     := /usr/local/bin
 
 ifeq ($(OS),Windows_NT)
@@ -56,6 +56,10 @@ debug:
 test:
 	go test $(TESTFLAGS) ./...
 
+.PHONY: test-in-azure
+test-in-azure:
+	go test $(TESTFLAGS) ./pkg/driver -args -runazuretest
+
 .PHONY: lint
 lint:
 	golangci-lint run --config ./golangci.yml
@@ -64,11 +68,6 @@ HAS_DEP          := $(shell $(CHECK) dep)
 HAS_GOLANGCI     := $(shell $(CHECK) golangci-lint)
 HAS_GOIMPORTS    := $(shell $(CHECK) goimports)
 GOLANGCI_VERSION := v1.16.0
-
-.PHONY: build-drivers
-build-drivers:
-	cp drivers/azure-vm/$(PROJECT)-azvm.sh bin/$(PROJECT)-azvm
-	cd drivers/azure-vm && pip3 install -r requirements.txt
 
 .PHONY: bootstrap
 bootstrap:
