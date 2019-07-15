@@ -7,13 +7,11 @@
         "cnab",
         "tutorial"
     ],
-    "maintainers": [
-        {
-            "name": "Jane Doe",
-            "email": "jane.doe@example.com",
-            "url": "https://example.com"
-        }
-    ],
+    "maintainers": [{
+        "name": "Jane Doe",
+        "email": "jane.doe@example.com",
+        "url": "https://example.com"
+    }],
     "invocationImages": {
         "cnab": {
             "name": "cnab",
@@ -23,12 +21,18 @@
             }
         }
     },
-    "parameters":{
-        "DUFFLE_ACI_DRIVER_MSI_TYPE":{
-            "type": "string"
+    "parameters": {
+        "AZURE_MSI_TYPE": {
+            "type": "string",
+            "destination": {
+                "env": "AZURE_MSI_TYPE"
+            }
         },
-        "DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID":{
-            "type": "string"
+        "AZURE_USER_MSI_RESOURCE_ID": {
+            "type": "string",
+            "destination": {
+                "env": "AZURE_USER_MSI_RESOURCE_ID"
+            }
         }
     },
     "credentials": null

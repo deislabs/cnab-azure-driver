@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
 	"github.com/Azure/azure-sdk-for-go/services/containerinstance/mgmt/2018-10-01/containerinstance"
@@ -15,6 +16,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/Azure/go-autorest/autorest/azure/cli"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/deislabs/cnab-go/driver"
 	"github.com/google/uuid"
@@ -33,43 +35,47 @@ const msiTokenEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
 type aciDriver struct {
 	config map[string]string
 	// This property is set to true if Duffle is running in cloud shell
-	inCloudShell       bool
-	deleteACIResources bool
-	authorizer         autorest.Authorizer
-	subscriptionID     string
-	verbose            bool
-	clientID           string
-	clientSecret       string
-	tenantID           string
-	applicationID      string
-	aciRG              string
-	createRG           bool
-	aciLocation        string
-	aciName            string
-	msiType            string
-	msiResource        azure.Resource
-	userMSIScope       string
-	userMSIRole        string
+	inCloudShell         bool
+	deleteACIResources   bool
+	authorizer           autorest.Authorizer
+	subscriptionID       string
+	verbose              bool
+	clientID             string
+	clientSecret         string
+	tenantID             string
+	applicationID        string
+	aciRG                string
+	createRG             bool
+	aciLocation          string
+	aciName              string
+	msiType              string
+	msiResource          azure.Resource
+	systemMSIScope       string
+	systemMSIRole        string
+	propagateCredentials bool
+	userMSIResourceID    string
+	clientLogin          string
+	oauthTokenProvider   adal.OAuthTokenProvider
 }
 
 // Config returns the ACI driver configuration options
 func (d *aciDriver) Config() map[string]string {
 	return map[string]string{
-		"DUFFLE_ACI_DRIVER_VERBOSE":          "Increase verbosity. true, false are supported values",
-		"DUFFLE_ACI_DRIVER_CLIENT_ID":        "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_CLIENT_SECRET":    "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_TENANT_ID":        "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID":  "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
-		"DUFFLE_ACI_DRIVER_APP_ID":           "Azure Application Id - this is the application to be used to authenticate to Azure",
-		"DUFFLE_ACI_DRIVER_RESOURCE_GROUP":   "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
-		"DUFFLE_ACI_DRIVER_LOCATION":         "The location to create the ACI Instance in",
-		"DUFFLE_ACI_DRIVER_NAME":             "The name of the ACI instance to create - if not specified a name will be generated",
-		"DUFFLE_ACI_DRIVER_DELETE_RESOURCES": "Delete RG and ACI instance created - default is true useful to set to false for debugging - only deletes RG if it was created by the driver",
-		//TODO add support for the invocation image to receive the users token if running in CloudShell
-		"DUFFLE_ACI_DRIVER_MSI_TYPE":             "If this is set to user or system the created ACI Container Group will be launched with MSI",
-		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE":      "The role to be asssigned to System MSI User - used if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
-		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE":     "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
-		"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID": "The resource Id of the MSI User - required if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == User",
+		"DUFFLE_ACI_DRIVER_VERBOSE":               "Increase verbosity. true, false are supported values",
+		"DUFFLE_ACI_DRIVER_CLIENT_ID":             "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_CLIENT_SECRET":         "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_TENANT_ID":             "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID":       "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
+		"DUFFLE_ACI_DRIVER_APP_ID":                "Azure Application Id - this is the application to be used to authenticate to Azure",
+		"DUFFLE_ACI_DRIVER_RESOURCE_GROUP":        "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
+		"DUFFLE_ACI_DRIVER_LOCATION":              "The location to create the ACI Instance in",
+		"DUFFLE_ACI_DRIVER_NAME":                  "The name of the ACI instance to create - if not specified a name will be generated",
+		"DUFFLE_ACI_DRIVER_DELETE_RESOURCES":      "Delete RG and ACI instance created - default is true useful to set to false for debugging - only deletes RG if it was created by the driver",
+		"DUFFLE_ACI_DRIVER_MSI_TYPE":              "This can be set to user or system",
+		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE":       "The role to be asssigned to System MSI User - used if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
+		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE":      "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
+		"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID":  "The resource Id of the MSI User - required if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == User ",
+		"DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS": "If this is set to true the credentials used to Launch the Driver are propagated to the invocation image in an ENV variable DUFFLE_ACI_DRIVER prefix will be relaced with AZURE_, default is false",
 	}
 }
 
@@ -133,29 +139,15 @@ func NewACIDriver() (driver.Driver, error) {
 		switch strings.ToLower(d.config["DUFFLE_ACI_DRIVER_MSI_TYPE"]) {
 		case "system":
 			d.msiType = "system"
-			scope := fmt.Sprintf("/subscriptions/%s/resourcegroups/%s", d.subscriptionID, d.aciRG)
-			role := "Contributor"
-			if len(d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE"]) > 0 {
-				role = d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE"]
-			}
-
-			d.log("MSI Role:", role)
-			d.userMSIScope = scope
-			if len(d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE"]) > 0 {
-				scope = d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE"]
-			}
-
-			d.userMSIRole = role
-			d.log("MSI Scope:", scope)
 
 		case "user":
 			d.msiType = "user"
-			userMSIResourceID := d.config["DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID"]
-			if len(userMSIResourceID) == 0 {
+			d.userMSIResourceID = d.config["DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID"]
+			if len(d.userMSIResourceID) == 0 {
 				return nil, errors.New("ACI Driver requires DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable when DUFFLE_ACI_DRIVER_MSI_TYPE is set to user")
 			}
 
-			resource, err := azure.ParseResourceID(userMSIResourceID)
+			resource, err := azure.ParseResourceID(d.userMSIResourceID)
 			if err != nil {
 				return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable parsing error: %v", err)
 			}
@@ -165,7 +157,7 @@ func NewACIDriver() (driver.Driver, error) {
 			}
 
 			d.msiResource = resource
-			d.log("User MSI Resource ID:", userMSIResourceID)
+			d.log("User MSI Resource ID:", d.userMSIResourceID)
 
 		default:
 			return nil, fmt.Errorf("DUFFLE_ACI_DRIVER_MSI_TYPE environment variable unknown value: %s", d.config["DUFFLE_ACI_DRIVER_MSI_TYPE"])
@@ -173,6 +165,8 @@ func NewACIDriver() (driver.Driver, error) {
 		d.log("MSI Type:", d.msiType)
 	}
 
+	d.propagateCredentials = len(d.config["DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS"]) == "true"
+	d.log("Propagate Credentials:", d.propagateCredentials)
 	return d, nil
 }
 
@@ -208,8 +202,6 @@ func (d *aciDriver) exec(op *driver.Operation) (reterr error) {
 
 func (d *aciDriver) setAuthorizer() error {
 
-	// TODO add support for cli config login
-
 	// Attempt to login with Service Principal
 	if len(d.clientID) != 0 && len(d.clientSecret) != 0 && len(d.tenantID) != 0 {
 		d.log("Attempting to Login with Service Principal")
@@ -226,14 +218,16 @@ func (d *aciDriver) setAuthorizer() error {
 	// Attempt to login with Device Code
 	if len(d.applicationID) != 0 && len(d.tenantID) != 0 {
 		d.log("Attempting to Login with Device Code")
-		deviceConfig := auth.NewDeviceFlowConfig(d.applicationID, d.tenantID)
-		authorizer, err := deviceConfig.Authorizer()
+		deviceFlowConfig := auth.NewDeviceFlowConfig(d.applicationID, d.tenantID)
+		var err error
+		d.oauthTokenProvider, err = deviceFlowConfig.ServicePrincipalToken()
 		if err != nil {
-			return fmt.Errorf("Attempt to set Authorizer with Device Code failed: %v", err)
+			return fmt.Errorf("failed to get oauth token from device flow: %v", err)
 		}
 
 		fmt.Println("Logged in with Device Code")
-		d.authorizer = authorizer
+		d.authorizer = autorest.NewBearerAuthorizer(d.oauthTokenProvider)
+		d.clientLogin = "devicecode"
 		return nil
 	}
 
@@ -245,7 +239,9 @@ func (d *aciDriver) setAuthorizer() error {
 			return fmt.Errorf("Attempt to get CloudShell token failed: %v", err)
 		}
 
+		d.oauthTokenProvider = token
 		d.authorizer = autorest.NewBearerAuthorizer(token)
+		d.clientLogin = "cloudshell"
 		return nil
 	}
 
@@ -266,6 +262,7 @@ func (d *aciDriver) setAuthorizer() error {
 	authorizer, err := auth.NewAuthorizerFromCLI()
 	if err == nil {
 		d.authorizer = authorizer
+		d.clientLogin = "cli"
 		return nil
 	}
 
@@ -284,8 +281,10 @@ func (d *aciDriver) setAzureSubscriptionID() error {
 			if result.StatusCode == 404 {
 				return fmt.Errorf("Subscription Id: %s not found", d.subscriptionID)
 			}
+
 			return fmt.Errorf("Attempt to Get Subscription Failed: %v", err)
 		}
+
 	} else {
 		result, err := subscriptionsClient.ListComplete(ctx)
 		if err != nil {
@@ -307,6 +306,7 @@ func (d *aciDriver) setAzureSubscriptionID() error {
 		}
 
 	}
+
 	return nil
 }
 
@@ -321,10 +321,12 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 		if err != nil {
 			return fmt.Errorf("Checking for existing resource group %s failed with error: %v", d.aciRG, err)
 		}
+
 		if len(d.aciLocation) == 0 {
 			d.log("Setting aci Location to RG Location:", *rg.Location)
 			d.aciLocation = *rg.Location
 		}
+
 	}
 
 	// Check that location supports ACI
@@ -340,7 +342,9 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 			if !locationIsAvailable(d.aciLocation, *t.Locations) {
 				return fmt.Errorf("ACI driver location is invalid: %v", d.aciLocation)
 			}
+
 		}
+
 	}
 
 	if d.createRG {
@@ -381,7 +385,6 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 		for k, v := range op.Files {
 			d.log("File", k, "Value", v)
 		}
-
 		// Ignore Image Map if its empty
 		if v, e := op.Files["/cnab/app/image-map.json"]; e && (len(v) > 0 && v != "{}") || !e || len(op.Files) > 1 {
 			return errors.New("ACI Driver does not support files")
@@ -392,12 +395,36 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 	// Create ACI Instance
 
 	var env []containerinstance.EnvironmentVariable
+	env = d.createMSIEnvVars(env)
+	if d.propagateCredentials {
+		env = d.createAzureEnvironmentEnvVars(env)
+		// Only propagate credentials if not using MSI
+		if len(d.msiType) == 0 {
+			env, err = d.createCredentialEnvVars(env)
+		}
+
+		if err != nil {
+			return fmt.Errorf("Failed to create environment variables for Credentials:%v", err)
+		}
+
+	}
+
 	for k, v := range op.Environment {
-		d.log("Environment Variable: Name:", k, "Value:", v)
+
+		// Need to check if any of the env variables already exist in case any propagated credentials are being overridden
+		for _, ev := range env {
+			if k == *ev.Name {
+				ev.SecureValue = to.StringPtr(strings.Replace(v, "'", "''", -1))
+				d.log("Updating Container Group Environment Variable: Name:", k, "to Value:", v)
+				continue
+			}
+
+		}
 		env = append(env, containerinstance.EnvironmentVariable{
 			Name:        to.StringPtr(k),
 			SecureValue: to.StringPtr(strings.Replace(v, "'", "''", -1)),
 		})
+		d.log("Setting Container Group Environment Variable: Name:", k, "Value:", v)
 	}
 	identity, err := d.getContainerIdentity(ctx, d.aciRG)
 	if err != nil {
@@ -477,6 +504,7 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 	if err != nil {
 		return fmt.Errorf("Error getting container logs :%v", err)
 	}
+
 	d.log("Container terminated successfully")
 	return nil
 }
@@ -497,6 +525,7 @@ func (d *aciDriver) getContainerLogs(ctx context.Context, aciRG string, aciName 
 		if err != nil {
 			return 0, fmt.Errorf("Error writing container logs :%v", err)
 		}
+
 	}
 
 	return noOfLines, nil
@@ -510,13 +539,15 @@ func (d *aciDriver) getContainerIdentity(ctx context.Context, aciRG string) (*id
 		//TODO Validate Role and Scope
 		//TODO Check to see if user has permission to create RoleAssignment
 
+		d.setSystemMSIRoleAndScope()
+
 		return &identityDetails{
 			MSIType: "system",
 			Identity: &containerinstance.ContainerGroupIdentity{
 				Type: containerinstance.SystemAssigned,
 			},
-			Scope: &d.userMSIScope,
-			Role:  &d.userMSIRole,
+			Scope: &d.systemMSIScope,
+			Role:  &d.systemMSIRole,
 		}, nil
 	}
 
@@ -527,6 +558,7 @@ func (d *aciDriver) getContainerIdentity(ctx context.Context, aciRG string) (*id
 		if err != nil {
 			return nil, fmt.Errorf("Error getting User Assigned Identity:%v  Error: %v", d.msiResource, err)
 		}
+
 		return &identityDetails{
 			MSIType: "user",
 			Identity: &containerinstance.ContainerGroupIdentity{
@@ -618,6 +650,7 @@ func locationIsAvailable(location string, locations []string) bool {
 		if l == location {
 			return true
 		}
+
 	}
 
 	return false
@@ -777,6 +810,7 @@ func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 			time.Sleep(20 * time.Second)
 			continue
 		}
+
 		err = raerror
 		break
 	}
@@ -825,6 +859,7 @@ func (d *aciDriver) getCloudShellToken() (*adal.Token, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error getting CloudShell Token: %v", err)
 	}
+
 	defer resp.Body.Close()
 	rawResp, err := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
@@ -839,5 +874,120 @@ func (d *aciDriver) getCloudShellToken() (*adal.Token, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error deserialising CloudShell Token Status Code: '%d'. Token: %s", resp.StatusCode, string(rawResp))
 	}
+
 	return &token, nil
+}
+
+func (d *aciDriver) createMSIEnvVars(env []containerinstance.EnvironmentVariable) []containerinstance.EnvironmentVariable {
+
+	if len(d.msiType) > 0 {
+		name := "AZURE_MSI_TYPE"
+		env = append(env, containerinstance.EnvironmentVariable{
+			Name:        &name,
+			SecureValue: &d.msiType,
+		})
+		d.log("Setting Container Group Environment Variable: Name:", name, "Value:", d.msiType)
+		if d.msiType == "user" {
+			name := "AZURE_USER_MSI_RESOURCE_ID"
+			env = append(env, containerinstance.EnvironmentVariable{
+				Name:        &name,
+				SecureValue: &d.userMSIResourceID,
+			})
+			d.log("Setting Container Group Environment Variable: Name:", name, "Value:", d.userMSIResourceID)
+		}
+	}
+
+	return env
+}
+
+func (d *aciDriver) createAzureEnvironmentEnvVars(env []containerinstance.EnvironmentVariable) []containerinstance.EnvironmentVariable {
+
+	azureEnvironmentPropertyNames := map[string]string{
+		"subscriptionID": "AZURE_SUBSCRIPTION_ID",
+		"tenantID":       "AZURE_TENANT_ID",
+	}
+	for k, v := range azureEnvironmentPropertyNames {
+		value := d.getFieldValue(k)
+		if len(value) > 0 {
+			name := v
+			env = append(env, containerinstance.EnvironmentVariable{
+				Name:        &name,
+				SecureValue: &value,
+			})
+			d.log("Setting Container Group Environment Variable: Name:", v, "Value:", value)
+		}
+	}
+	return env
+}
+
+func (d *aciDriver) createCredentialEnvVars(env []containerinstance.EnvironmentVariable) ([]containerinstance.EnvironmentVariable, error) {
+
+	if len(d.clientLogin) > 0 {
+		name := "AZURE_OAUTH_TOKEN"
+		var token string
+		if d.clientLogin == "cloudshell" || d.clientLogin == "devicecode" {
+			d.log(fmt.Sprintf("Propagating OAuth Token from %s login", d.clientLogin))
+			token = d.oauthTokenProvider.OAuthToken()
+		}
+
+		if d.clientLogin == "cli" {
+			d.log("Propagating OAuth Token from cli")
+			t, err := cli.GetTokenFromCLI("https://management.azure.com/")
+			if err != nil {
+				return nil, err
+			}
+
+			adaltoken, err := t.ToADALToken()
+			token = adaltoken.OAuthToken()
+			if err != nil {
+				return nil, fmt.Errorf("Failed to get cli token for propagation: %v", err)
+			}
+
+		}
+
+		env = append(env, containerinstance.EnvironmentVariable{
+			Name:        &name,
+			SecureValue: &token,
+		})
+		d.log("Setting Container Group Environment Variable: Name:", name, "Value:", token)
+	}
+
+	spnPropertyNames := map[string]string{
+		"clientID":     "AZURE_CLIENT_ID",
+		"clientSecret": "AZURE_CLIENT_SECRET",
+	}
+	for k, v := range spnPropertyNames {
+		value := d.getFieldValue(k)
+		if len(value) > 0 {
+			name := v
+			env = append(env, containerinstance.EnvironmentVariable{
+				Name:        &name,
+				SecureValue: &value,
+			})
+			d.log("Setting Container Group Environment Variable: Name:", v, "Value:", value)
+		}
+	}
+	return env, nil
+}
+
+func (d *aciDriver) getFieldValue(field string) string {
+	r := reflect.ValueOf(d)
+	return reflect.Indirect(r).FieldByName(field).String()
+}
+
+func (d *aciDriver) setSystemMSIRoleAndScope() {
+	scope := fmt.Sprintf("/subscriptions/%s/resourcegroups/%s", d.subscriptionID, d.aciRG)
+	role := "Contributor"
+	if len(d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE"]) > 0 {
+		role = d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE"]
+	}
+
+	d.log("MSI Role:", role)
+	d.systemMSIScope = scope
+	if len(d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE"]) > 0 {
+		scope = d.config["DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE"]
+	}
+
+	d.systemMSIRole = role
+	d.log("MSI Scope:", scope)
 }

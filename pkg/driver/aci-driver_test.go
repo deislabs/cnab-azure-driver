@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -27,12 +28,14 @@ func TestNewACIDriver(t *testing.T) {
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_LOCATION got: %v", err)
 	assert.NotNil(t, d)
+	assert.Equal(t, "test", getFieldValue(d, "aciLocation"))
 
 	os.Unsetenv("DUFFLE_ACI_DRIVER_LOCATION")
 	os.Setenv("DUFFLE_ACI_DRIVER_RESOURCE_GROUP", "test")
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_RESOURCE_GROUP got: %v", err)
 	assert.NotNil(t, d)
+	assert.Equal(t, "test", getFieldValue(d, "aciRG"))
 
 	// If DUFFLE_ACI_DRIVER_MSI_TYPE is specified it must be user or system
 	os.Setenv("DUFFLE_ACI_DRIVER_MSI_TYPE", "invalid")
@@ -44,6 +47,7 @@ func TestNewACIDriver(t *testing.T) {
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_MSI_TYPE to system got: %v", err)
 	assert.NotNil(t, d)
+	assert.Equal(t, "system", getFieldValue(d, "msiType"))
 
 	// DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID must be set if user MSI is being used
 	os.Setenv("DUFFLE_ACI_DRIVER_MSI_TYPE", "user")
@@ -75,6 +79,20 @@ func TestNewACIDriver(t *testing.T) {
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_RESOURCE_GROUP got: %v", err)
 	assert.NotNil(t, d)
+	assert.Equal(t, "user", getFieldValue(d, "msiType"))
+	assert.Equal(t, "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/userAssignedIdentities/name", getFieldValue(d, "userMSIResourceID"))
+
+	os.Setenv("DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID", "11111111-1111-1111-1111-111111111111")
+	d, err = NewACIDriver()
+	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID got: %v", err)
+	assert.NotNil(t, d)
+	assert.Equal(t, "11111111-1111-1111-1111-111111111111", getFieldValue(d, "subscriptionID"))
+
+	os.Setenv("DUFFLE_ACI_DRIVER_TENANT_ID", "22222222-2222-2222-2222-222222222222")
+	d, err = NewACIDriver()
+	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_TENANT_ID got: %v", err)
+	assert.NotNil(t, d)
+	assert.Equal(t, "22222222-2222-2222-2222-222222222222", getFieldValue(d, "tenantID"))
 
 	// The driver should handle Docker and OCI invocation images
 	assert.Equal(t, true, d.Handles(cnabdriver.ImageTypeDocker))
@@ -155,4 +173,10 @@ func unSetDriverEnvironmentVars(t *testing.T) {
 			os.Unsetenv(pair[0])
 		}
 	}
+}
+
+func getFieldValue(driver cnabdriver.Driver, field string) string {
+	r := reflect.ValueOf(driver)
+	f := reflect.Indirect(r).FieldByName(field)
+	return string(f.String())
 }
