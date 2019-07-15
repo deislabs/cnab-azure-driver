@@ -403,6 +403,10 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 			env, err = d.createCredentialEnvVars(env)
 		}
 
+		if err != nil {
+			return fmt.Errorf("Failed to create environment variables for Credentials:%v", err)
+		}
+
 	}
 
 	for k, v := range op.Environment {
