@@ -1,5 +1,7 @@
 # Duffle ACI Driver
 
+[![Build Status](https://dev.azure.com/deislabs/duffle-aci-driver/_apis/build/status/duffle-aci-driver?branchName=master)](https://dev.azure.com/deislabs/duffle-aci-driver/_build/latest?definitionId=15&branchName=master)
+
 The ACI Driver for Duffle enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible (e.g. [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/)). You must have an [Azure account](https://azure.microsoft.com/free/) to use this driver.
 
 ## Getting Started
@@ -66,7 +68,6 @@ duffle install <installation name> helloworld-aci -d aci
 
 By default the ACI Driver will use the credentials that you are logged into CloudShell with to create the ACI Container Group to run the invocation image, if you have more than one subscription it will pick the first subscription that is returned from listing all subscriptions available to the account, a specific subscription can be chosen by setting the environment Variable `DUFFLE_ACI_DRIVER_AZURE_SUBSCRIPTION_ID`to the subscription ID to be used. More details on alternative authentication approaches are specified [below](#authentication-to-azure). 
 
-
 Run the bundle with a System Assigned MSI:
 
 ```console
@@ -99,9 +100,9 @@ If the driver is running in Azure CloudShell it will automatically login using t
 
 If the driver is running in an environment where MSI is available (such as in a VM in Azure) , it will attempt to login using MSI, no configuration is necessary, the driver will detect the MSI endpoint and use it if it is available.
 
-5. Azure CLI
+5. az CLI
 
-If the driver is running in an environment where azure cli is available then the driver will attempt to get an OAuth token using the cli.
+If the driver is running in an environment where az CLI is available then the driver will attempt to get an OAuth token using the CLI.
 
 ## ACI Container Group Identity
 
@@ -129,11 +130,12 @@ By default the driver will delete the container group that it creates and also t
 | DUFFLE_ACI_DRIVER_TENANT_ID  	|  Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure using Service Principal or Device Code for ACI creation 	|
 | DUFFLE_ACI_DRIVER_APP_ID  	|  Azure Application Id - this is the application to be used when authenticating to Azure using device flow	|
 | DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID    | Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the first (random) subscription is used    | 
-| DUFFLE_ACI_DRIVER_RESOURCE_GROUP  	|   The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created, if specfied and it does not exist a new resource group with this name will be created	|
+| DUFFLE_ACI_DRIVER_RESOURCE_GROUP  	|   The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created, if specified and it does not exist a new resource group with this name will be created	|
 | DUFFLE_ACI_DRIVER_LOCATION  	|   The location in which to create the ACI Container Group and Resource Group	|
 | DUFFLE_ACI_DRIVER_NAME  	|   The name of the ACI instance to create - if not specified a name will be generated	|
 | DUFFLE_ACI_DRIVER_DELETE_RESOURCES  	|  Set to false so as not to delete the RG and ACI container group created, default is true - useful for debugging - only deletes RG if it was created by the driver 	|
-| DUFFLE_ACI_DRIVER_MSI_TYPE  	|   If this is set to user or system the created ACI Container Group will be launched with MSI	|
-| DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE  	|  The role to be asssigned to System MSI User - used if ACI_MSI_TYPE == system, if this is null or empty then the role defaults to Contributor 	|
-| DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE  	|  The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set 	|
-| DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID  	|  The resource Id of the MSI User - required if ACI_MSI_TYPE == user 	|
+| DUFFLE_ACI_DRIVER_MSI_TYPE  	|   This can be set to either `user` or `system` This value is presented to the invocation image container as `AZURE_MSI_TYPE`|
+| DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE  	|  If `DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE` is set to `system` this defines the role to be assigned to System MSI User, if this is null or empty then the role defaults to `Contributor`	|
+| DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE  	|  If `DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE` is set to `system` this defines the scope to apply the role to System MSI User - if this is null or empty then the scope will be Resource Group that the ACI Instance is being created |
+| DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID  	|  If `DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE` is set to `user` this is required and should contain the resource_id of the User MSI to be used This value is presented to the invocation image container as `AZURE_USER_MSI_RESOURCE_ID`</li>|
+| DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS | Default false. If this is set to true and MSI is not being used then any credentials set\used to create the ACI instance are also propagated to the invocation image in an ENV variable as follows : <br/><ul><li> `DUFFLE_ACI_DRIVER_CLIENT_ID` becomes `AZURE_CLIENT_ID`</li><li>`DUFFLE_ACI_DRIVER_CLIENT_SECRET` becomes `AZURE_CLIENT_SECRET`</li><</ul><br/>Tenant and subscription details used are presented to the invocation image container as follows <br/><ul><li><li>`DUFFLE_ACI_DRIVER_TENANT_ID` becomes `AZURE_TENANT_ID`</li><li>`DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID` becomes `AZURE_SUBSCRIPTION_ID`</li></ul><br/> In addition if the driver uses CloudShell or az cli for authentication then the ADAL Token used by those tools will be propagated as a json object in the environment variable `AZURE_ADAL_TOKEN`. If the CNAB package being invoked defines environment variables with matching names then any values provided will overwrite the values from the ACI Driver. |

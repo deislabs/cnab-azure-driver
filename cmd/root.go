@@ -69,7 +69,7 @@ func GetOperation() (*cnabdriver.Operation, error) {
 		return nil, fmt.Errorf("Error getting FileInfo for stdin: %v", err)
 	}
 
-	if fi.Size() == 0 {
+	if fi.Size() == 0 && (fi.Mode()&os.ModeNamedPipe == 0) {
 		return nil, errors.New("No input passed on stdin")
 	}
 
