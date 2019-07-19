@@ -28,14 +28,14 @@ func TestNewACIDriver(t *testing.T) {
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_LOCATION got: %v", err)
 	assert.NotNil(t, d)
-	assert.Equal(t, "test", getFieldValue(d, "aciLocation"))
+	assert.Equal(t, "test", getFieldValue(d, "aciLocation").(string))
 
 	os.Unsetenv("DUFFLE_ACI_DRIVER_LOCATION")
 	os.Setenv("DUFFLE_ACI_DRIVER_RESOURCE_GROUP", "test")
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_RESOURCE_GROUP got: %v", err)
 	assert.NotNil(t, d)
-	assert.Equal(t, "test", getFieldValue(d, "aciRG"))
+	assert.Equal(t, "test", getFieldValue(d, "aciRG").(string))
 
 	// If DUFFLE_ACI_DRIVER_MSI_TYPE is specified it must be user or system
 	os.Setenv("DUFFLE_ACI_DRIVER_MSI_TYPE", "invalid")
@@ -47,7 +47,7 @@ func TestNewACIDriver(t *testing.T) {
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_MSI_TYPE to system got: %v", err)
 	assert.NotNil(t, d)
-	assert.Equal(t, "system", getFieldValue(d, "msiType"))
+	assert.Equal(t, "system", getFieldValue(d, "msiType").(string))
 
 	// DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID must be set if user MSI is being used
 	os.Setenv("DUFFLE_ACI_DRIVER_MSI_TYPE", "user")
@@ -79,20 +79,20 @@ func TestNewACIDriver(t *testing.T) {
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_RESOURCE_GROUP got: %v", err)
 	assert.NotNil(t, d)
-	assert.Equal(t, "user", getFieldValue(d, "msiType"))
-	assert.Equal(t, "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/userAssignedIdentities/name", getFieldValue(d, "userMSIResourceID"))
+	assert.Equal(t, "user", getFieldValue(d, "msiType").(string))
+	assert.Equal(t, "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/userAssignedIdentities/name", getFieldValue(d, "userMSIResourceID").(string))
 
 	os.Setenv("DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID", "11111111-1111-1111-1111-111111111111")
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID got: %v", err)
 	assert.NotNil(t, d)
-	assert.Equal(t, "11111111-1111-1111-1111-111111111111", getFieldValue(d, "subscriptionID"))
+	assert.Equal(t, "11111111-1111-1111-1111-111111111111", getFieldValue(d, "subscriptionID").(string))
 
 	os.Setenv("DUFFLE_ACI_DRIVER_TENANT_ID", "22222222-2222-2222-2222-222222222222")
 	d, err = NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_TENANT_ID got: %v", err)
 	assert.NotNil(t, d)
-	assert.Equal(t, "22222222-2222-2222-2222-222222222222", getFieldValue(d, "tenantID"))
+	assert.Equal(t, "22222222-2222-2222-2222-222222222222", getFieldValue(d, "tenantID").(string))
 
 	// The driver should handle Docker and OCI invocation images
 	assert.Equal(t, true, d.Handles(cnabdriver.ImageTypeDocker))
@@ -153,15 +153,38 @@ func TestRunAzureTest(t *testing.T) {
 			"CNAB_BUNDLE_NAME":       "helloworld-aci",
 			"CNAB_BUNDLE_VERSION":    "0.1.0",
 		},
-		Files: map[string]string{
-			"/cnab/app/image-map.json": "{}",
-		},
 	}
 	d, err := NewACIDriver()
 	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation. Got: %v", err)
 	assert.NotNil(t, d)
 	err = d.Run(&op)
 	assert.NoErrorf(t, err, "Expected no error when running Test Operation. Got: %v", err)
+
+	// Test op with files
+
+	op = cnabdriver.Operation{
+		Action:       "install",
+		Installation: "test",
+		Parameters:   map[string]interface{}{},
+		Revision:     "01DDY0MT808KX0GGZ6SMXN4TW",
+		Image:        "simongdavies/helloworld-aci-cnab:c25f7f06fbc608e7bcfabd7e2700c5976e824286",
+		ImageType:    "docker",
+		Environment: map[string]string{
+			"CNAB_INSTALLATION_NAME": "test-aci",
+			"CNAB_ACTION":            "install",
+			"CNAB_BUNDLE_NAME":       "helloworld-aci",
+			"CNAB_BUNDLE_VERSION":    "0.1.0",
+		},
+		Files: map[string]string{
+			"/cnab/app/image-map.json": "{}",
+			"/tmp/test":                "testcontent",
+		},
+	}
+	d, err = NewACIDriver()
+	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation with files. Got: %v", err)
+	assert.NotNil(t, d)
+	err = d.Run(&op)
+	assert.NoErrorf(t, err, "Expected no error when running Test Operation with files. Got: %v", err)
 	unSetDriverEnvironmentVars(t)
 }
 
@@ -175,8 +198,16 @@ func unSetDriverEnvironmentVars(t *testing.T) {
 	}
 }
 
-func getFieldValue(driver cnabdriver.Driver, field string) string {
+func getFieldValue(driver cnabdriver.Driver, field string) interface{} {
 	r := reflect.ValueOf(driver)
 	f := reflect.Indirect(r).FieldByName(field)
-	return string(f.String())
+	switch f.Kind() {
+	case reflect.Int:
+		return f.Int()
+	case reflect.String:
+		return f.String()
+	case reflect.Bool:
+		return f.Bool()
+	}
+	return nil
 }

@@ -2,13 +2,15 @@
 
 [![Build Status](https://dev.azure.com/deislabs/duffle-aci-driver/_apis/build/status/duffle-aci-driver?branchName=master)](https://dev.azure.com/deislabs/duffle-aci-driver/_build/latest?definitionId=15&branchName=master)
 
-The ACI Driver for Duffle enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible (e.g. [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/)). You must have an [Azure account](https://azure.microsoft.com/free/) to use this driver.
+The ACI Driver for Duffle enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible (e.g. [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/)). 
+
+You must have an [Azure account](https://azure.microsoft.com/free/) to use this driver.
 
 ## Getting Started
 
 The easiest way to get started is to use [Azure Cloud Shell](https://shell.azure.com). 
 
-1. [Get the latest Duffle release for Linux](https://github.com/deislabs/duffle/releases).
+#### 1. [Get the latest Duffle release for Linux](https://github.com/deislabs/duffle/releases).
 
 ```console
 curl https://github.com/deislabs/duffle/releases/download/<latest-release>/duffle-linux-amd64 -L -o duffle
@@ -16,7 +18,7 @@ mv duffle $HOME/bin/duffle
 chmod +x $HOME/bin/duffle
 ```
 
-2. Run the command duffle init to setup duffle:
+#### 2. Run the command duffle init to setup duffle:
     
 ```console
 $USER@Azure:~$ duffle init
@@ -34,15 +36,15 @@ $USER@Azure:~$ duffle init
 ==> Generating a new public keyring at /home/$USER/.duffle/public.ring
 ```
 
-3. [Get the latest duffle-aci-driver release for linux](https://github.com/deislabs/duffle-aci-driver/releases)
+#### 3. [Get the latest duffle-aci-driver release for linux](https://github.com/deislabs/duffle-aci-driver/releases)
 
 ```console
-curl https://github.com/deislabs/duffle-aci-driver//releases/download/<latest-release>/duffle-aci-driver-linux-amd64 -L -o duffle-aci-driver
+curl https://github.com/deislabs/duffle-aci-driver/releases/download/<latest-release>/duffle-aci-driver-linux-amd64 -L -o duffle-aci-driver
 mv duffle-aci-driver $HOME/bin/duffle-aci-driver
 chmod +x $HOME/bin/duffle-aci-driver
 ```
 
-4. Install a sample bundle:
+#### 4. Install a sample bundle:
 
 A simple helloworld-aci bundle can be found [here](https://github.com/deislabs/duffle/tree/duffle-aci-driver/examples/helloworld-aci). 
 
@@ -53,7 +55,7 @@ curl https://raw.githubusercontent.com/deislabs/duffle-aci-driver/master/example
 duffle import /tmp/helloworld-aci.tgz -d ~/.duffle/bundles
 ```
 
-5. Install the sample bundle using the aci-driver:
+#### 5. Install the sample bundle using the aci-driver:
 
 If you are running in CloudShell then the driver requires at a minimum of one environment variable 'DUFFLE_ACI_DRIVER_LOCATION' to be set. This specifies the Azure location where the ACI Instance will be created, in this configuration an Azure Resource Group will be automatically created and the Resource Group and the ACI Container Group will be deleted once the installation is complete, the current user credentials will be used to authenticate to Azure, if you are not running in CloudShell see [here](#authentication-to-azure).
 

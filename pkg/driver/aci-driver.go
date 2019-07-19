@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,8 +29,12 @@ import (
 	"time"
 )
 
-const userAgent string = "Duffle ACI Driver"
-const msiTokenEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
+const (
+	userAgent        string = "Duffle ACI Driver"
+	msiTokenEndpoint        = "http://169.254.169.254/metadata/identity/oauth2/token"
+	fileMountPoint          = "/mnt/BundleFiles"
+	fileMountName           = "bundlefilevolume"
+)
 
 // aciDriver runs Docker and OCI invocation images in ACI
 type aciDriver struct {
@@ -379,18 +384,37 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 		}()
 	}
 
-	// TODO ACI does not support file copy
-	// Does not support files because ACI does not support file copy yet
+	var mounts []containerinstance.VolumeMount
+	var volumes []containerinstance.Volume
+
+	// ACI does not support file copy
+	// files are mounted into the container in a secrets volume and inovcationImage Entry point is modified to process the files before run cmd is invoked
+
+	hasFiles := false
 	if len(op.Files) > 0 {
+
+		hasFiles = true
+		secretMount := containerinstance.VolumeMount{
+			MountPath: to.StringPtr(fileMountPoint),
+			Name:      to.StringPtr(fileMountName),
+		}
+		mounts = append(mounts, secretMount)
+		secrets := make(map[string]*string)
+		secretVolume := containerinstance.Volume{
+			Name:   to.StringPtr(fileMountName),
+			Secret: secrets,
+		}
+		volumes = append(volumes, secretVolume)
+		i := 0
 		for k, v := range op.Files {
 			d.log("File", k, "Value", v)
+			secrets[fmt.Sprintf("path%d", i)] = to.StringPtr(base64.StdEncoding.EncodeToString([]byte(k)))
+			secrets[fmt.Sprintf("value%d", i)] = to.StringPtr(base64.StdEncoding.EncodeToString([]byte(v)))
+			i++
 		}
-		// Ignore Image Map if its empty
-		if v, e := op.Files["/cnab/app/image-map.json"]; e && (len(v) > 0 && v != "{}") || !e || len(op.Files) > 1 {
-			return errors.New("ACI Driver does not support files")
-		}
-
 	}
+
+	d.log("Bundle Has Files:", hasFiles)
 
 	// Create ACI Instance
 
@@ -410,7 +434,6 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 	}
 
 	for k, v := range op.Environment {
-
 		// Need to check if any of the env variables already exist in case any propagated credentials are being overridden
 		for _, ev := range env {
 			if k == *ev.Name {
@@ -431,7 +454,7 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 		return fmt.Errorf("Failed to get container Identity:%v", err)
 	}
 
-	_, err = d.createInstance(d.aciName, d.aciLocation, d.aciRG, op.Image, env, *identity)
+	_, err = d.createInstance(d.aciName, d.aciLocation, d.aciRG, op.Image, env, *identity, &mounts, &volumes, hasFiles)
 	if err != nil {
 		return fmt.Errorf("Error creating ACI Instance:%v", err)
 	}
@@ -509,7 +532,7 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 	return nil
 }
 
-// This will only work if the logs dont get truncated because of size.
+// This will only work if the logs don't get truncated because of size.
 func (d *aciDriver) getContainerLogs(ctx context.Context, aciRG string, aciName string, linesOutput int) (int, error) {
 	d.log("Getting Logs")
 	containerClient := d.getContainerClient()
@@ -682,10 +705,14 @@ func (d *aciDriver) createContainerGroup(aciName string, aciRG string, container
 	return future.Result(containerGroupsClient)
 }
 
-func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails) (*containerinstance.ContainerGroup, error) {
+func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails, mounts *[]containerinstance.VolumeMount, volumes *[]containerinstance.Volume, hasFiles bool) (*containerinstance.ContainerGroup, error) {
+
+	// TODO Windows Container support
+
 	// ARM does not yet support the ability to create a System MSI and assign role and scope on creation
 	// so if the MSI type is system assigned then need to create the ACI Instance first with an alpine instance in order to create the identity and then assign permissions
 	// The created ACI is then updated to execute the Invocation Image
+
 	if identity.MSIType == "system" {
 		d.log("Creating ACI to create System Identity")
 		alpine := "alpine:latest"
@@ -731,6 +758,15 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 	}
 
 	d.log("Creating ACI for CNAB action")
+
+	// Because ACI does not have a way to mount or copy files any file input to the invocation image is set as a pair of secrets in a secret volume, path{n} contains the file target file path and
+	// value{n} contains the file content, the script below is injected into the container so that the expected files are created before the run tool is executed
+
+	var command []string
+	if hasFiles {
+		command = []string{"sh", "-c", fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;/cnab/app/run", fileMountPoint)}
+	}
+
 	containerGroup, err := d.createContainerGroup(
 		aciName,
 		aciRG,
@@ -757,9 +793,12 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 								},
 							},
 							EnvironmentVariables: &env,
+							Command:              to.StringSlicePtr(command),
+							VolumeMounts:         mounts,
 						},
 					},
 				},
+				Volumes: volumes,
 			},
 		})
 	if err != nil {
