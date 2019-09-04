@@ -20,6 +20,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure/cli"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/deislabs/cnab-go/driver"
+	"github.com/docker/distribution/reference"
 	"github.com/google/uuid"
 
 	"io/ioutil"
@@ -40,47 +41,53 @@ const (
 type aciDriver struct {
 	config map[string]string
 	// This property is set to true if Duffle is running in cloud shell
-	inCloudShell         bool
-	deleteACIResources   bool
-	authorizer           autorest.Authorizer
-	subscriptionID       string
-	verbose              bool
-	clientID             string
-	clientSecret         string
-	tenantID             string
-	applicationID        string
-	aciRG                string
-	createRG             bool
-	aciLocation          string
-	aciName              string
-	msiType              string
-	msiResource          azure.Resource
-	systemMSIScope       string
-	systemMSIRole        string
-	propagateCredentials bool
-	userMSIResourceID    string
-	clientLogin          string
-	oauthTokenProvider   adal.OAuthTokenProvider
+	inCloudShell          bool
+	deleteACIResources    bool
+	authorizer            autorest.Authorizer
+	subscriptionID        string
+	verbose               bool
+	clientID              string
+	clientSecret          string
+	tenantID              string
+	applicationID         string
+	aciRG                 string
+	createRG              bool
+	aciLocation           string
+	aciName               string
+	msiType               string
+	msiResource           azure.Resource
+	systemMSIScope        string
+	systemMSIRole         string
+	propagateCredentials  bool
+	userMSIResourceID     string
+	clientLogin           string
+	oauthTokenProvider    adal.OAuthTokenProvider
+	useSPForACR           bool
+	imageRegistryUser     string
+	imageRegistryPassword string
 }
 
 // Config returns the ACI driver configuration options
 func (d *aciDriver) Config() map[string]string {
 	return map[string]string{
-		"DUFFLE_ACI_DRIVER_VERBOSE":               "Increase verbosity. true, false are supported values",
-		"DUFFLE_ACI_DRIVER_CLIENT_ID":             "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_CLIENT_SECRET":         "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_TENANT_ID":             "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
-		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID":       "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
-		"DUFFLE_ACI_DRIVER_APP_ID":                "Azure Application Id - this is the application to be used to authenticate to Azure",
-		"DUFFLE_ACI_DRIVER_RESOURCE_GROUP":        "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
-		"DUFFLE_ACI_DRIVER_LOCATION":              "The location to create the ACI Instance in",
-		"DUFFLE_ACI_DRIVER_NAME":                  "The name of the ACI instance to create - if not specified a name will be generated",
-		"DUFFLE_ACI_DRIVER_DELETE_RESOURCES":      "Delete RG and ACI instance created - default is true useful to set to false for debugging - only deletes RG if it was created by the driver",
-		"DUFFLE_ACI_DRIVER_MSI_TYPE":              "This can be set to user or system",
-		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE":       "The role to be asssigned to System MSI User - used if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
-		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE":      "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
-		"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID":  "The resource Id of the MSI User - required if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == User ",
-		"DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS": "If this is set to true the credentials used to Launch the Driver are propagated to the invocation image in an ENV variable DUFFLE_ACI_DRIVER prefix will be relaced with AZURE_, default is false",
+		"DUFFLE_ACI_DRIVER_VERBOSE":                        "Increase verbosity. true, false are supported values",
+		"DUFFLE_ACI_DRIVER_CLIENT_ID":                      "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_CLIENT_SECRET":                  "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_TENANT_ID":                      "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
+		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID":                "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
+		"DUFFLE_ACI_DRIVER_APP_ID":                         "Azure Application Id - this is the application to be used to authenticate to Azure",
+		"DUFFLE_ACI_DRIVER_RESOURCE_GROUP":                 "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
+		"DUFFLE_ACI_DRIVER_LOCATION":                       "The location to create the ACI Instance in",
+		"DUFFLE_ACI_DRIVER_NAME":                           "The name of the ACI instance to create - if not specified a name will be generated",
+		"DUFFLE_ACI_DRIVER_DELETE_RESOURCES":               "Delete RG and ACI instance created - default is true useful to set to false for debugging - only deletes RG if it was created by the driver",
+		"DUFFLE_ACI_DRIVER_MSI_TYPE":                       "This can be set to user or system",
+		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE":                "The role to be asssigned to System MSI User - used if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
+		"DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE":               "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
+		"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID":           "The resource Id of the MSI User - required if DUFFLE_ACI_DRIVER_ACI_MSI_TYPE == User ",
+		"DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS":          "If this is set to true the credentials used to Launch the Driver are propagated to the invocation image in an ENV variable DUFFLE_ACI_DRIVER prefix will be relaced with AZURE_, default is false",
+		"DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH": "If this is set to true the DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET are also used for authentication to ACR",
+		"DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME":        "The username for authenticating to the container registry",
+		"DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD":        "The password for authenticating to the container registry",
 	}
 }
 
@@ -92,15 +99,13 @@ func NewACIDriver() (driver.Driver, error) {
 	}
 	d.inCloudShell = len(os.Getenv("ACC_CLOUD")) > 0
 	d.log("In Cloud Shell:", d.inCloudShell)
-	// if d.inCloudShell {
-	// 	d.getSettingsFromCloudShellConfig()
-	// }
+
+	// TODO retrieve setting from CloudShell
 
 	for env := range d.Config() {
 		d.config[env] = os.Getenv(env)
 	}
 	d.verbose = len(d.config["DUFFLE_ACI_DRIVER_VERBOSE"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_VERBOSE"]) == "true"
-	fmt.Println("VERBOSE:", d.config["DUFFLE_ACI_DRIVER_VERBOSE"])
 	d.log("verbose:", d.verbose)
 	d.deleteACIResources = true
 	if len(d.config["DUFFLE_ACI_DRIVER_DELETE_RESOURCES"]) > 0 && (strings.ToLower(d.config["DUFFLE_ACI_DRIVER_DELETE_RESOURCES"]) == "false") {
@@ -172,6 +177,25 @@ func NewACIDriver() (driver.Driver, error) {
 
 	d.propagateCredentials = len(d.config["DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS"]) == "true"
 	d.log("Propagate Credentials:", d.propagateCredentials)
+	d.imageRegistryUser = d.config["DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME"]
+	d.imageRegistryPassword = d.config["DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD"]
+	length := len(d.imageRegistryUser) + len(d.imageRegistryPassword)
+	if length > 0 && (length-len(d.imageRegistryPassword) == 0 || length-len(d.imageRegistryUser) == 0) {
+		return nil, errors.New("Both DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD should be set if one is set")
+	}
+
+	d.useSPForACR = len(d.config["DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH"]) > 0 && strings.ToLower(d.config["DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH"]) == "true"
+	if d.useSPForACR {
+		if length > 0 {
+			return nil, errors.New("DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH should not be set if DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD are set")
+		}
+		if len(d.clientID) == 0 || len(d.clientSecret) == 0 {
+			return nil, errors.New("Both DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set when setting DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH")
+		}
+		d.imageRegistryPassword = d.clientSecret
+		d.imageRegistryUser = d.clientID
+	}
+
 	return d, nil
 }
 
@@ -230,7 +254,6 @@ func (d *aciDriver) setAuthorizer() error {
 			return fmt.Errorf("failed to get oauth token from device flow: %v", err)
 		}
 
-		fmt.Println("Logged in with Device Code")
 		d.authorizer = autorest.NewBearerAuthorizer(d.oauthTokenProvider)
 		d.clientLogin = "devicecode"
 		return nil
@@ -316,7 +339,24 @@ func (d *aciDriver) setAzureSubscriptionID() error {
 }
 
 func (d *aciDriver) createACIInstance(op *driver.Operation) error {
+
+	// TODO Check that image is a type and platform that can be executed by ACI
+
 	// GET ACI Config
+
+	ref, err := reference.ParseAnyReference(op.Image)
+	if err != nil {
+		return fmt.Errorf("Failed to parse image reference: %s", op.Image)
+	}
+
+	var domain string
+	if named, ok := ref.(reference.Named); ok {
+		domain = reference.Domain(named)
+	}
+
+	if d.useSPForACR && !strings.HasSuffix(domain, "azurecr.io") {
+		return fmt.Errorf("Cannot use Service Principal as credentials for non Azure registry : %s", domain)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -393,6 +433,8 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 	hasFiles := false
 	if len(op.Files) > 0 {
 
+		// TODO Check that the run cmd is "/cnab/app/run"
+
 		hasFiles = true
 		secretMount := containerinstance.VolumeMount{
 			MountPath: to.StringPtr(fileMountPoint),
@@ -454,7 +496,7 @@ func (d *aciDriver) createACIInstance(op *driver.Operation) error {
 		return fmt.Errorf("Failed to get container Identity:%v", err)
 	}
 
-	_, err = d.createInstance(d.aciName, d.aciLocation, d.aciRG, op.Image, env, *identity, &mounts, &volumes, hasFiles)
+	_, err = d.createInstance(d.aciName, d.aciLocation, d.aciRG, op.Image, env, *identity, &mounts, &volumes, hasFiles, domain)
 	if err != nil {
 		return fmt.Errorf("Error creating ACI Instance:%v", err)
 	}
@@ -705,7 +747,7 @@ func (d *aciDriver) createContainerGroup(aciName string, aciRG string, container
 	return future.Result(containerGroupsClient)
 }
 
-func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails, mounts *[]containerinstance.VolumeMount, volumes *[]containerinstance.Volume, hasFiles bool) (*containerinstance.ContainerGroup, error) {
+func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails, mounts *[]containerinstance.VolumeMount, volumes *[]containerinstance.Volume, hasFiles bool, domain string) (*containerinstance.ContainerGroup, error) {
 
 	// TODO Windows Container support
 
@@ -767,6 +809,17 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 		command = []string{"sh", "-c", fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;/cnab/app/run", fileMountPoint)}
 	}
 
+	var registrycredentials []containerinstance.ImageRegistryCredential
+
+	if len(d.imageRegistryPassword) > 0 {
+		credentials := containerinstance.ImageRegistryCredential{
+			Username: &d.imageRegistryUser,
+			Password: &d.imageRegistryPassword,
+			Server:   &domain,
+		}
+		registrycredentials = append(registrycredentials, credentials)
+	}
+
 	containerGroup, err := d.createContainerGroup(
 		aciName,
 		aciRG,
@@ -798,7 +851,8 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 						},
 					},
 				},
-				Volumes: volumes,
+				Volumes:                  volumes,
+				ImageRegistryCredentials: &registrycredentials,
 			},
 		})
 	if err != nil {

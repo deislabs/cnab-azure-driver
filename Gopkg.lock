@@ -91,6 +91,17 @@
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:4ddc17aeaa82cb18c5f0a25d7c253a10682f518f4b2558a82869506eec223d76"
+  name = "github.com/docker/distribution"
+  packages = [
+    "digestset",
+    "reference",
+  ]
+  pruneopts = "UT"
+  revision = "2461543d988979529609e8cb6fca9ca190dc48da"
+  version = "v2.7.1"
+
+[[projects]]
   digest = "1:44fd27d0559326eb63ee0b7b5c80832c821761ff6d1b9cc4ad075783485a5837"
   name = "github.com/docker/go"
   packages = ["canonical/json"]
@@ -162,6 +173,14 @@
   pruneopts = "UT"
   revision = "af06845cf3004701891bf4fdb884bfe4920b3727"
   version = "v1.1.0"
+
+[[projects]]
+  digest = "1:ee4d4af67d93cc7644157882329023ce9a7bcfce956a079069a9405521c7cc8d"
+  name = "github.com/opencontainers/go-digest"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
+  version = "v1.0.0-rc1"
 
 [[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
@@ -372,8 +391,10 @@
     "github.com/Azure/go-autorest/autorest/adal",
     "github.com/Azure/go-autorest/autorest/azure",
     "github.com/Azure/go-autorest/autorest/azure/auth",
+    "github.com/Azure/go-autorest/autorest/azure/cli",
     "github.com/Azure/go-autorest/autorest/to",
     "github.com/deislabs/cnab-go/driver",
+    "github.com/docker/distribution/reference",
     "github.com/google/uuid",
     "github.com/spf13/cobra",
     "github.com/stretchr/testify/assert",

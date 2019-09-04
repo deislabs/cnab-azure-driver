@@ -94,6 +94,44 @@ func TestNewACIDriver(t *testing.T) {
 	assert.NotNil(t, d)
 	assert.Equal(t, "22222222-2222-2222-2222-222222222222", getFieldValue(d, "tenantID").(string))
 
+	os.Setenv("DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME", "test")
+	d, err = NewACIDriver()
+	assert.EqualError(t, err, "Both DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD should be set if one is set")
+	os.Unsetenv("DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME")
+
+	os.Setenv("DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD", "test")
+	d, err = NewACIDriver()
+	assert.EqualError(t, err, "Both DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD should be set if one is set")
+
+	os.Setenv("DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME", "test")
+	d, err = NewACIDriver()
+	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD got: %v", err)
+	assert.NotNil(t, d)
+
+	os.Setenv("DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH", "true")
+	d, err = NewACIDriver()
+	assert.EqualError(t, err, "DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH should not be set if DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD are set")
+
+	os.Unsetenv("DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_USERNAME")
+	os.Unsetenv("DUFFLE_ACI_DRIVER_IMAGE_REGISTRY_PASSWORD")
+
+	d, err = NewACIDriver()
+	assert.EqualError(t, err, "Both DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set when setting DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH")
+
+	os.Setenv("DUFFLE_ACI_DRIVER_CLIENT_ID", "test")
+	d, err = NewACIDriver()
+	assert.EqualError(t, err, "Both DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set when setting DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH")
+
+	os.Unsetenv("DUFFLE_ACI_DRIVER_CLIENT_ID")
+	os.Setenv("DUFFLE_ACI_DRIVER_CLIENT_SECRET", "test")
+	d, err = NewACIDriver()
+	assert.EqualError(t, err, "Both DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set when setting DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH")
+
+	os.Setenv("DUFFLE_ACI_DRIVER_CLIENT_ID", "test")
+	d, err = NewACIDriver()
+	assert.NoErrorf(t, err, "Expected no error when setting DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH got: %v", err)
+	assert.NotNil(t, d)
+
 	// The driver should handle Docker and OCI invocation images
 	assert.Equal(t, true, d.Handles(cnabdriver.ImageTypeDocker))
 	assert.Equal(t, true, d.Handles(cnabdriver.ImageTypeOCI))
