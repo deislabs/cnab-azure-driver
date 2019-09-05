@@ -5,15 +5,8 @@ import (
 	"fmt"
 
 	duffleDriver "github.com/deislabs/cnab-go/driver"
-<<<<<<< HEAD
-
-	"github.com/deislabs/duffle-aci-driver/pkg"
-	"github.com/deislabs/duffle-aci-driver/pkg/driver"
-
-=======
->>>>>>> fixing output
 	"github.com/spf13/cobra"
-
+	"github.com/deislabs/duffle-aci-driver/pkg"
 	"github.com/deislabs/duffle-aci-driver/pkg/driver"
 	"io/ioutil"
 	"os"

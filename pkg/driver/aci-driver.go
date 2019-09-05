@@ -26,8 +26,11 @@ import (
 	"time"
 )
 
-const userAgent string = "Duffle ACI Driver"
-const msiTokenEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
+const (
+	userAgent        string = "Duffle ACI Driver"
+	msiTokenEndpoint        = "http://169.254.169.254/metadata/identity/oauth2/token"
+	stateMountName          = "state"
+)
 
 // ACIDriver runs Docker and OCI invocation images in ACI
 type ACIDriver struct {
@@ -39,26 +42,32 @@ type ACIDriver struct {
 	deleteACIResources bool
 	authorizer         autorest.Authorizer
 	subscriptionID     string
+	mountVolume        bool
 	// out                io.Writer
 }
 
 // Config returns the ACI driver configuration options
 func (d *ACIDriver) Config() map[string]string {
 	return map[string]string{
-		"VERBOSE":                  "Increase verbosity. true, false are supported values",
-		"AZURE_CLIENT_ID":          "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"AZURE_CLIENT_SECRET":      "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
-		"AZURE_TENANT_ID":          "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
-		"AZURE_SUBSCRIPTION_ID":    "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
-		"AZURE_APP_ID":             "Azure Applications Id - this is the application to be used to authenticate to Azure",
-		"ACI_RESOURCE_GROUP":       "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
-		"ACI_LOCATION":             "The location to create the ACI Instance in",
-		"ACI_NAME":                 "The name of the ACI instance to create - if not specified a name will be generated",
-		"ACI_DO_NOT_DELETE":        "Do not delete RG and ACI instance created - useful for debugging - only deletes RG if it was created by the driver",
-		"ACI_MSI_TYPE":             "If this is set to user or system the created ACI Container Group will be launched with MSI",
-		"ACI_SYSTEM_MSI_ROLE":      "The role to be asssigned to System MSI User - used if ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
-		"ACI_SYSTEM_MSI_SCOPE":     "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
-		"ACI_USER_MSI_RESOURCE_ID": "The resource Id of the MSI User - required if ACI_MSI_TYPE == User",
+		"VERBOSE":                        "Increase verbosity. true, false are supported values",
+		"AZURE_CLIENT_ID":                "AAD Client ID for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"AZURE_CLIENT_SECRET":            "AAD Client Secret for Azure account authentication - used to authenticate to Azure for ACI creation",
+		"AZURE_TENANT_ID":                "Azure AAD Tenant Id Azure account authentication - used to authenticate to Azure for ACI creation",
+		"AZURE_SUBSCRIPTION_ID":          "Azure Subscription Id - this is the subscription to be used for ACI creation, if not specified the default subscription is used",
+		"AZURE_APP_ID":                   "Azure Applications Id - this is the application to be used to authenticate to Azure",
+		"ACI_RESOURCE_GROUP":             "The name of the existing Resource Group to create the ACI instance in, if not specified a Resource Group will be created",
+		"ACI_LOCATION":                   "The location to create the ACI Instance in",
+		"ACI_NAME":                       "The name of the ACI instance to create - if not specified a name will be generated",
+		"ACI_DO_NOT_DELETE":              "Do not delete RG and ACI instance created - useful for debugging - only deletes RG if it was created by the driver",
+		"ACI_MSI_TYPE":                   "If this is set to user or system the created ACI Container Group will be launched with MSI",
+		"ACI_SYSTEM_MSI_ROLE":            "The role to be asssigned to System MSI User - used if ACI_MSI_TYPE == system, if this is null or empty then the role defaults to contributor",
+		"ACI_SYSTEM_MSI_SCOPE":           "The scope to apply the role to System MSI User - will attempt to set scope to the  Resource Group that the ACI Instance is being created in if not set",
+		"ACI_USER_MSI_RESOURCE_ID":       "The resource Id of the MSI User - required if ACI_MSI_TYPE == User",
+		"ACI_STATE_FILESHARE":            "The File Share for Azure State volume",
+		"ACI_STATE_STORAGE_ACCOUNT_NAME": "The Storage Account for the Azure State File Share",
+		"ACI_STATE_STORAGE_ACCOUNT_KEY":  "The Storage Key for the Azure State File Share",
+		"ACI_STATE_PATH":                 "The local path relative to the mount point where state can be stored - this is set as a environment variable on the ACI instance and can be used by a bundle to persist filesystem data",
+		"ACI_STATE_MOUNT_POINT":          "The mount point location for state volume",
 	}
 }
 
@@ -313,12 +322,27 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 			SecureValue: to.StringPtr(strings.Replace(v, "'", "''", -1)),
 		})
 	}
+	var volume = containerinstance.Volume{}
+	var volumeMount = containerinstance.VolumeMount{}
+	d.mountVolume = len(d.config["ACI_STATE_PATH"]) > 0
+	if d.mountVolume {
+		env = append(env, containerinstance.EnvironmentVariable{
+			Name:        to.StringPtr("STATE_PATH"),
+			SecureValue: to.StringPtr(strings.Replace(d.config["ACI_STATE_PATH"], "'", "''", -1)),
+		})
+		volume.Name = to.StringPtr(stateMountName)
+		volume.AzureFile = d.getAzureFileVolume()
+		volumeMount.Name = to.StringPtr(stateMountName)
+		volumeMount.ReadOnly = to.BoolPtr(false)
+		volumeMount.MountPath = to.StringPtr(d.config["ACI_STATE_MOUNT_POINT"])
+	}
+
 	identity, err := d.getContainerIdentity(ctx, aciRG)
 	if err != nil {
 		return fmt.Errorf("Failed to get container Identity:%v", err)
 	}
 
-	_, err = d.createInstance(aciName, aciLocation, aciRG, op.Image, env, *identity)
+	_, err = d.createInstance(aciName, aciLocation, aciRG, op.Image, env, *identity, volume, volumeMount)
 	if err != nil {
 		return fmt.Errorf("Error creating ACI Instance:%v", err)
 	}
@@ -393,6 +417,18 @@ func (d *ACIDriver) createACIInstance(op *driver.Operation) error {
 	}
 	d.log("Container terminated successfully")
 	return nil
+}
+
+func (d *ACIDriver) getAzureFileVolume() *containerinstance.AzureFileVolume {
+
+	azureFileVolume := containerinstance.AzureFileVolume{}
+	if d.mountVolume {
+		azureFileVolume.ReadOnly = to.BoolPtr(false)
+		azureFileVolume.StorageAccountKey = to.StringPtr(d.config["ACI_STATE_STORAGE_ACCOUNT_KEY"])
+		azureFileVolume.StorageAccountName = to.StringPtr(d.config["ACI_STATE_STORAGE_ACCOUNT_NAME"])
+		azureFileVolume.ShareName = to.StringPtr(d.config["ACI_STATE_FILESHARE"])
+	}
+	return &azureFileVolume
 }
 
 // This will only work if the logs dont get truncated because of size.
@@ -588,8 +624,15 @@ func (d *ACIDriver) createContainerGroup(aciName string, aciRG string, container
 	return future.Result(containerGroupsClient)
 }
 
-func (d *ACIDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails) (*containerinstance.ContainerGroup, error) {
-	// if the MSI type is system assigned then need to create the ACI Instance first in order to create the identity and then assign permissions
+func (d *ACIDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails, volume containerinstance.Volume, volumeMount containerinstance.VolumeMount) (*containerinstance.ContainerGroup, error) {
+	var volumes []containerinstance.Volume
+	var volumeMounts []containerinstance.VolumeMount
+	if d.mountVolume {
+		volumeMounts = append(volumeMounts, volumeMount)
+		volumes = append(volumes, volume)
+	}
+
+	// The MSI type is system assigned then need to create the ACI Instance first in order to create the identity and then assign permissions
 	if identity.MSIType == "system" {
 		d.log("Creating ACI to create System Identity")
 		alpine := "alpine:latest"
@@ -618,9 +661,11 @@ func (d *ACIDriver) createInstance(aciName string, aciLocation string, aciRG str
 										CPU:        to.Float64Ptr(1.5),
 									},
 								},
+								VolumeMounts: &volumeMounts,
 							},
 						},
 					},
+					Volumes: &volumes,
 				},
 			})
 		if err != nil {
@@ -661,9 +706,11 @@ func (d *ACIDriver) createInstance(aciName string, aciLocation string, aciRG str
 								},
 							},
 							EnvironmentVariables: &env,
+							VolumeMounts:         &volumeMounts,
 						},
 					},
 				},
+				Volumes: &volumes,
 			},
 		})
 	if err != nil {
