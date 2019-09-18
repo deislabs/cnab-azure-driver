@@ -15,7 +15,7 @@ func TestGetLoginInfo(t *testing.T) {
 		envVarsToGet []string
 		valueToCheck LoginType
 	}{
-		// Set environments vars using TEST_
+		// to execute tests set environment vars using names in envVarsToGet preceded with TEST_
 		{"Get LoginInfo using Service Principal", []string{"DUFFLE_ACI_DRIVER_CLIENT_ID", "DUFFLE_ACI_DRIVER_CLIENT_SECRET", "DUFFLE_ACI_DRIVER_TENANT_ID"}, ServicePrincipal},
 		{"Get LoginInfo using Service Principal", []string{"DUFFLE_ACI_DRIVER_APP_ID"}, DeviceCode},
 	}
