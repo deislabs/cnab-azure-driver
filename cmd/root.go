@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	cnabdriver "github.com/deislabs/cnab-go/driver"
 	"github.com/spf13/cobra"

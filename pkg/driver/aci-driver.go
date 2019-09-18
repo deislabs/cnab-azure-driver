@@ -15,10 +15,11 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure/cli"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/deislabs/cnab-go/driver"
-	az "github.com/deislabs/duffle-aci-driver/pkg/azure"
 	"github.com/docker/distribution/reference"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+
+	az "github.com/deislabs/duffle-aci-driver/pkg/azure"
 
 	"os"
 	"strings"
@@ -26,11 +27,10 @@ import (
 )
 
 const (
-	userAgentPrefix  = "DuffleACIDriver"
-	msiTokenEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
-	fileMountPoint   = "/mnt/BundleFiles"
-	fileMountName    = "bundlefilevolume"
-	stateMountName   = "state"
+	userAgentPrefix = "DuffleACIDriver"
+	fileMountPoint  = "/mnt/BundleFiles"
+	fileMountName   = "bundlefilevolume"
+	stateMountName  = "state"
 )
 
 // aciDriver runs Docker and OCI invocation images in ACI
