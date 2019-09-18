@@ -84,7 +84,7 @@ To enable trace logs of the ACI Driver set the environment variable `DUFFLE_ACI_
 
 ## Authentication to Azure
 
-The ACI Driver can Authenticate to Azure using four different mechanisms and will evaluate them in this order:
+The ACI Driver can Authenticate to Azure using the following mechanisms and will evaluate them in this order:
 
 1. Service Principal
 
@@ -141,3 +141,11 @@ By default the driver will delete the container group that it creates and also t
 | DUFFLE_ACI_DRIVER_SYSTEM_MSI_SCOPE  	|  If `DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE` is set to `system` this defines the scope to apply the role to System MSI User - if this is null or empty then the scope will be Resource Group that the ACI Instance is being created |
 | DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID  	|  If `DUFFLE_ACI_DRIVER_SYSTEM_MSI_ROLE` is set to `user` this is required and should contain the resource_id of the User MSI to be used This value is presented to the invocation image container as `AZURE_USER_MSI_RESOURCE_ID`</li>|
 | DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS | Default false. If this is set to true and MSI is not being used then any credentials set\used to create the ACI instance are also propagated to the invocation image in an ENV variable as follows : <br/><ul><li> `DUFFLE_ACI_DRIVER_CLIENT_ID` becomes `AZURE_CLIENT_ID`</li><li>`DUFFLE_ACI_DRIVER_CLIENT_SECRET` becomes `AZURE_CLIENT_SECRET`</li><</ul><br/>Tenant and subscription details used are presented to the invocation image container as follows <br/><ul><li><li>`DUFFLE_ACI_DRIVER_TENANT_ID` becomes `AZURE_TENANT_ID`</li><li>`DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID` becomes `AZURE_SUBSCRIPTION_ID`</li></ul><br/> In addition if the driver uses CloudShell or az cli for authentication then the ADAL Token used by those tools will be propagated as a json object in the environment variable `AZURE_ADAL_TOKEN`. If the CNAB package being invoked defines environment variables with matching names then any values provided will overwrite the values from the ACI Driver. |
+| DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH 	|   If this is set to true then `DUFFLE_ACI_DRIVER_CLIENT_ID` and `DUFFLE_ACI_DRIVER_CLIENT_SECRET`	are used for authentication with the registry containing the invocation image, `DUFFLE_ACI_DRIVER_REGISTRY_USERNAME` and `DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD` should not be set|
+| DUFFLE_ACI_DRIVER_REGISTRY_USERNAME 	|  Username to authenticate to Registry for invocation image	|
+| DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD  	|  Password to authenticate to Registry for invocation image 	|
+| DUFFLE_ACI_DRIVER_STATE_FILESHARE     |  The File Share for Azure State volume |
+| DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME | The Storage Account for the Azure State File Share |
+| DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY |  The Storage Key for the Azure State File Share |
+| DUFFLE_ACI_DRIVER_STATE_PATH | The local path relative to the mount point where state can be stored - this is combined with `DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT` and set as environment variable `STATE_PATH` on the ACI instance and can be used by a bundle to persist filesystem data |
+| DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT | The mount point location for state volume |

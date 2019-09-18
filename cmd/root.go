@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	cnabdriver "github.com/deislabs/cnab-go/driver"
 	"github.com/spf13/cobra"
@@ -41,12 +44,22 @@ func runRootCmd(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	log.SetOutput(os.Stdout)
+
+	verbose := os.Getenv("DUFFLE_ACI_DRIVER_VERBOSE")
+	if len(verbose) > 0 && strings.ToLower(verbose) == "true" {
+		log.SetLevel(log.DebugLevel)
+		log.Info("Verbose Logging Enabled")
+	} else {
+		log.SetLevel(log.WarnLevel)
+	}
+
 	op, err := GetOperation()
 	if err != nil {
 		return err
 	}
 
-	acidriver, err := driver.NewACIDriver()
+	acidriver, err := driver.NewACIDriver(Version)
 	if err != nil {
 		return fmt.Errorf("Error creating ACI Driver: %v", err)
 	}
