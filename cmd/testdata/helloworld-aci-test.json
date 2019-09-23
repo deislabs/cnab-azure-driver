@@ -4,8 +4,11 @@
     "action": "install",
     "parameters": {
     },
-    "image": "simongdavies/helloworld-aci-cnab:53de31401adeb2ddd3025d2b8bbb5dd540e9bda1",
-    "image_type": "docker",
+    "image": {
+        "image": "simongdavies/helloworld-aci-cnab",
+        "image_type": "docker",
+        "contentDigest": "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb"
+    },
     "environment": {
         "CNAB_INSTALLATION_NAME": "test-aci",
         "CNAB_ACTION": "install",

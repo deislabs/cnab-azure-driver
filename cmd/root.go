@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 
 	cnabdriver "github.com/deislabs/cnab-go/driver"
+
 	"github.com/spf13/cobra"
 
 	"github.com/deislabs/duffle-aci-driver/pkg/driver"
@@ -38,11 +40,15 @@ var versionCmd = &cobra.Command{
 }
 
 func runRootCmd(cmd *cobra.Command, args []string) error {
-
 	if handles {
 		HandlesImageTypes()
 		return nil
 	}
+	return RunOperation()
+}
+
+// RunOperation a bundle operation using ACI Driver
+func RunOperation() error {
 
 	log.SetOutput(os.Stdout)
 
@@ -59,14 +65,54 @@ func runRootCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	outputDirName := os.Getenv("CNAB_OUTPUT_DIR")
+	if len(op.Outputs) > 0 && len(outputDirName) == 0 {
+		return fmt.Errorf("Bundle has %d outputs but CNAB_OUTPUT_DIR is not set", len(op.Outputs))
+	}
+
+	// The output directory should exist and be a directory
+
+	info, err := os.Stat(outputDirName)
+	if err != nil {
+		return fmt.Errorf("CNAB_OUTPUT_DIR: %s does not exist", outputDirName)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("CNAB_OUTPUT_DIR: %s is not a directory", outputDirName)
+	}
+
 	acidriver, err := driver.NewACIDriver(Version)
 	if err != nil {
 		return fmt.Errorf("Error creating ACI Driver: %v", err)
 	}
 
 	fmt.Printf("Running %s action on %s\n", op.Action, op.Installation)
-	return acidriver.Run(op)
+	opResult, err := acidriver.Run(op)
+	if err != nil {
+		return fmt.Errorf("Running %s action on %s Error:%v", op.Action, op.Installation, err)
+	}
+	if len(opResult.Outputs) != len(op.Outputs) {
+		return fmt.Errorf("Expected %d Outputs but go %d", len(op.Outputs), len(opResult.Outputs))
+	}
 
+	return WriteOutputs(outputDirName, opResult)
+}
+
+// WriteOutputs writes the outputs from an operation to the location expected by the Command Driver
+func WriteOutputs(outputDirName string, results cnabdriver.OperationResult) error {
+
+	if len(results.Outputs) == 0 {
+		return nil
+	}
+
+	for name, item := range results.Outputs {
+		fileName := path.Clean(path.Join(outputDirName, name))
+		err := ioutil.WriteFile(fileName, []byte(item), 0644)
+		if err != nil {
+			return fmt.Errorf("Failed to write output file: %s Error: %v", fileName, err)
+		}
+	}
+	return nil
 }
 
 // HandlesImageTypes writes output containing comma separated values list of imageTypes that the ACI Driver can handle

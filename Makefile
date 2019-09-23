@@ -58,7 +58,7 @@ test:
 
 .PHONY: test-in-azure
 test-in-azure:
-	go test $(TESTFLAGS) ./pkg/driver -args -runazuretest
+	./test/run_azure_test.local.sh
 
 .PHONY: lint
 lint:

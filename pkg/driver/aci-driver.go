@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/cli"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/deislabs/cnab-go/bundle"
 	"github.com/deislabs/cnab-go/driver"
 	"github.com/docker/distribution/reference"
 	"github.com/google/uuid"
@@ -35,7 +36,6 @@ const (
 
 // aciDriver runs Docker and OCI invocation images in ACI
 type aciDriver struct {
-	//config                map[string]string
 	deleteACIResources      bool
 	subscriptionID          string
 	clientID                string
@@ -63,6 +63,7 @@ type aciDriver struct {
 	stateMountPoint         string
 	userAgent               string
 	loginInfo               az.LoginInfo
+	hasOutputs              bool
 }
 
 // Config returns the ACI driver configuration options
@@ -307,7 +308,7 @@ func checkAllOrNoneSet(config map[string]string, items []string) (bool, error) {
 }
 
 // Run executes the ACI driver
-func (d *aciDriver) Run(op *driver.Operation) error {
+func (d *aciDriver) Run(op *driver.Operation) (driver.OperationResult, error) {
 	return d.exec(op)
 }
 
@@ -316,24 +317,35 @@ func (d *aciDriver) Handles(dt string) bool {
 	return dt == driver.ImageTypeDocker || dt == driver.ImageTypeOCI
 }
 
-func (d *aciDriver) exec(op *driver.Operation) (reterr error) {
+func (d *aciDriver) exec(op *driver.Operation) (driver.OperationResult, error) {
+
 	var err error
+	operationResult := driver.OperationResult{
+		Outputs: map[string]string{},
+	}
+
+	// Check that there is a state volume if needed
+	d.hasOutputs = len(op.Outputs) > 0
+	if d.hasOutputs && !d.mountStateVolume {
+		return operationResult, errors.New("Bundle has outputs no volume mounted for state, set DUFFLE_ACI_DRIVER_STATE_* variables so that state can be retrieved")
+	}
+
 	d.loginInfo, err = az.LoginToAzure(d.clientID, d.clientSecret, d.tenantID, d.applicationID)
 	if err != nil {
-		return fmt.Errorf("cannot Login To Azure: %v", err)
+		return operationResult, fmt.Errorf("cannot Login To Azure: %v", err)
 	}
 
 	err = d.setAzureSubscriptionID()
 	if err != nil {
-		return fmt.Errorf("cannot set Azure subscription: %v", err)
+		return operationResult, fmt.Errorf("cannot set Azure subscription: %v", err)
 	}
 
 	err = d.runInvocationImageUsingACI(op)
 	if err != nil {
-		return fmt.Errorf("running invocation instance using ACI failed: %v", err)
+		return operationResult, fmt.Errorf("running invocation instance using ACI failed: %v", err)
 	}
 
-	return nil
+	return operationResult, nil
 }
 
 func (d *aciDriver) setAzureSubscriptionID() error {
@@ -382,10 +394,10 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 	// TODO Check that image is a type and platform that can be executed by ACI
 
 	// GET ACI Config
-
-	ref, err := reference.ParseAnyReference(op.Image)
+	image := imageWithDigest(op.Image)
+	ref, err := reference.ParseAnyReference(image)
 	if err != nil {
-		return fmt.Errorf("Failed to parse image reference: %s", op.Image)
+		return fmt.Errorf("Failed to parse image reference: %s error: %v", image, err)
 	}
 
 	var domain string
@@ -552,7 +564,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 		return fmt.Errorf("Failed to get container Identity:%v", err)
 	}
 
-	_, err = d.createInstance(d.aciName, d.aciLocation, d.aciRG, op.Image, env, *identity, &mounts, &volumes, hasFiles, domain)
+	_, err = d.createInstance(d.aciName, d.aciLocation, d.aciRG, image, env, *identity, &mounts, &volumes, hasFiles, domain)
 	if err != nil {
 		return fmt.Errorf("Error creating ACI Instance:%v", err)
 	}
@@ -810,10 +822,19 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 
 	// Because ACI does not have a way to mount or copy files any file input to the invocation image is set as a pair of secrets in a secret volume, path{n} contains the file target file path and
 	// value{n} contains the file content, the script below is injected into the container so that the expected files are created before the run tool is executed
-
+	var scriptBuilder strings.Builder
 	var command []string
 	if hasFiles {
-		command = []string{"sh", "-c", fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;/cnab/app/run", fileMountPoint)}
+		scriptBuilder.WriteString(fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;", fileMountPoint))
+	}
+
+	if d.hasOutputs {
+		scriptBuilder.WriteString("mkdir -p ${STATE_PATH}/output;ln -s ${STATE_PATH}/output /cnab/app/outputs;")
+	}
+
+	if scriptBuilder.Len() > 0 {
+		scriptBuilder.WriteString("/cnab/app/run")
+		command = []string{"sh", "-c", scriptBuilder.String()}
 	}
 
 	var registrycredentials []containerinstance.ImageRegistryCredential
@@ -1018,4 +1039,11 @@ func (d *aciDriver) createCredentialEnvVars(env []containerinstance.EnvironmentV
 func (d *aciDriver) getFieldValue(field string) string {
 	r := reflect.ValueOf(d)
 	return reflect.Indirect(r).FieldByName(field).String()
+}
+
+func imageWithDigest(img bundle.InvocationImage) string {
+	if img.Digest == "" {
+		return img.Image
+	}
+	return img.Image + "@" + img.Digest
 }

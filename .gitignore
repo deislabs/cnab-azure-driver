@@ -20,3 +20,4 @@ __pycache__/
 /duffle-aci-driver
 .vscode/settings.json
 /bin
+*.local.*

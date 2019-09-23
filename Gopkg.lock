@@ -44,6 +44,14 @@
   version = "v12.0.0"
 
 [[projects]]
+  digest = "1:d37f34e1e231ee4b8657d1b6153e2696b1d7341850f648f5d78151d3bc1f677b"
+  name = "github.com/Masterminds/semver"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "fe7c21038085e01e67044ec1efe3afb1eaa59f75"
+  version = "v3.0.1"
+
+[[projects]]
   digest = "1:fdb4ed936abeecb46a8c27dcac83f75c05c87a46d9ec7711411eb785c213fa02"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
@@ -67,12 +75,17 @@
   version = "v1.1.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:52040fcebb6fa319040341decab79c12d7e40d36591bb5a21497dc568ae35960"
+  branch = "command_outputs"
+  digest = "1:1d65aaf537fb5f63e54ec7a9dfece699375b0405de37338673c2343f5083058a"
   name = "github.com/deislabs/cnab-go"
-  packages = ["driver"]
+  packages = [
+    "bundle",
+    "bundle/definition",
+    "driver",
+  ]
   pruneopts = "UT"
-  revision = "9028f0f800a40977c2e49a38be764978cfe82324"
+  revision = "4795471ebeb2a725a210cb01e864d2e9c266df64"
+  source = "github.com/simongdavies/cnab-go"
 
 [[projects]]
   digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
@@ -167,6 +180,14 @@
   version = "v1.0"
 
 [[projects]]
+  digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
+
+[[projects]]
   digest = "1:5d231480e1c64a726869bc4142d270184c419749d34f167646baa21008eb0a79"
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
@@ -183,6 +204,14 @@
   version = "v1.0.0-rc1"
 
 [[projects]]
+  digest = "1:cf31692c14422fa27c83a05292eb5cbe0fb2775972e8f1f8446a71549bd8980b"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
+
+[[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
@@ -191,12 +220,36 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:d235e49bf6cae4fe6a794352b5e74656f9e3c15b1f6b097b0382865414110e2e"
+  name = "github.com/qri-io/jsonpointer"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "43be820608971e680b60469cfc7cc0e2e75fd4ef"
+  version = "v0.1.0"
+
+[[projects]]
+  digest = "1:86a61771e3006eeb78ab8a7942c3a9dbae1aca96ab48df505357a6a93f7bc3fa"
+  name = "github.com/qri-io/jsonschema"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b244d4b99401d163bd9e382fd58698794259d091"
+  version = "v0.1.1"
+
+[[projects]]
   digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
   name = "github.com/satori/go.uuid"
   packages = ["."]
   pruneopts = "UT"
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
   version = "v1.2.0"
+
+[[projects]]
+  digest = "1:04457f9f6f3ffc5fea48e71d62f2ca256637dee0a04d710288e27e05c8b41976"
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "839c75faf7f98a33d445d181f3018b5c3409a45e"
+  version = "v1.4.2"
 
 [[projects]]
   digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"
@@ -393,9 +446,11 @@
     "github.com/Azure/go-autorest/autorest/azure/auth",
     "github.com/Azure/go-autorest/autorest/azure/cli",
     "github.com/Azure/go-autorest/autorest/to",
+    "github.com/deislabs/cnab-go/bundle",
     "github.com/deislabs/cnab-go/driver",
     "github.com/docker/distribution/reference",
     "github.com/google/uuid",
+    "github.com/sirupsen/logrus",
     "github.com/spf13/cobra",
     "github.com/stretchr/testify/assert",
   ]

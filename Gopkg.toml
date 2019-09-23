@@ -24,6 +24,10 @@
 #   go-tests = true
 #   unused-packages = true
 
+[[constraint]]
+  name = "github.com/deislabs/cnab-go"
+  branch = "command_outputs"
+  source = "github.com/simongdavies/cnab-go"
 
 [[constraint]]
   name = "github.com/Azure/azure-sdk-for-go"
@@ -32,10 +36,6 @@
 [[constraint]]
   name = "github.com/Azure/go-autorest"
   version = "12.0.0"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/deislabs/cnab-go"
 
 [[constraint]]
   name = "github.com/google/uuid"

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/deislabs/cnab-go/bundle"
 	cnabdriver "github.com/deislabs/cnab-go/driver"
 	"github.com/stretchr/testify/assert"
 )
@@ -98,12 +99,50 @@ func TestNewACIDriver(t *testing.T) {
 
 	unSetDriverEnvironmentVars(t)
 }
+func TestCanWriteOutputs(t *testing.T) {
+	os.Setenv("DUFFLE_ACI_DRIVER_LOCATION", "test")
+	defer unSetDriverEnvironmentVars(t)
+	op := cnabdriver.Operation{
+		Action:       "install",
+		Installation: "test",
+		Parameters: map[string]interface{}{
+			"param1": "value1",
+			"param2": "value2",
+		},
+		Image: bundle.InvocationImage{
+			BaseImage: bundle.BaseImage{
+				Image:     "simongdavies/helloworld-aci-cnab",
+				ImageType: "docker",
+				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+			},
+		},
+		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
+		Environment: map[string]string{
+			"ENV1": "value1",
+			"ENV2": "value2",
+		},
+		Files: map[string]string{
+			"/cnab/app/image-map.json": "{}",
+		},
+		Outputs: []string{
+			"output1",
+			"output2",
+		},
+	}
 
+	d, err := NewACIDriver("test-version")
+	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation. Got: %v", err)
+	assert.NotNil(t, d)
+	_, err = d.Run(&op)
+	assert.Error(t, err, "Bundle has outputs no volume mounted for state, set DUFFLE_ACI_DRIVER_STATE_* variables so that state can be retrieved")
+
+}
 func TestRunAzureTest(t *testing.T) {
 
 	if !*runazuretest {
 		t.Skip("Not running tests in Azure")
 	}
+
 	unSetDriverEnvironmentVars(t)
 	// Set environments vars using TEST_ to configure the driver before running the test, if these are not set the the driver tries to login using the cloudshell or az cli
 	loginEnvVars := []string{
@@ -120,15 +159,6 @@ func TestRunAzureTest(t *testing.T) {
 		os.Setenv(e, envvar)
 	}
 	defer unSetDriverEnvironmentVars(t)
-	// defer func() {
-	// 	for _, e := range os.Environ() {
-	// 		pair := strings.Split(e, "=")
-	// 		if strings.HasPrefix(pair[0], "DUFFLE_ACI_DRIVER") {
-	// 			t.Logf("Unsetting Env Variable: %s", pair[0])
-	// 			os.Unsetenv(pair[0])
-	// 		}
-	// 	}
-	// }()
 
 	// Set verbose output for the driver
 	os.Setenv("DUFFLE_ACI_DRIVER_VERBOSE", "true")
@@ -140,35 +170,57 @@ func TestRunAzureTest(t *testing.T) {
 
 	op := cnabdriver.Operation{
 		Action:       "install",
-		Installation: "test",
-		Parameters:   map[string]interface{}{},
-		Revision:     "01DDY0MT808KX0GGZ6SMXN4TW",
-		Image:        "simongdavies/helloworld-aci-cnab:c25f7f06fbc608e7bcfabd7e2700c5976e824286",
-		ImageType:    "docker",
+		Installation: "test-install",
+		Parameters: map[string]interface{}{
+			"param1": "value1",
+			"param2": "value2",
+		},
+		Image: bundle.InvocationImage{
+			BaseImage: bundle.BaseImage{
+				Image:     "simongdavies/helloworld-aci-cnab",
+				ImageType: "docker",
+				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+			},
+		},
 		Environment: map[string]string{
 			"CNAB_INSTALLATION_NAME": "test-aci",
 			"CNAB_ACTION":            "install",
 			"CNAB_BUNDLE_NAME":       "helloworld-aci",
 			"CNAB_BUNDLE_VERSION":    "0.1.0",
+			"ENV1":                   "value1",
+			"ENV2":                   "value2",
+		},
+		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
+		Files: map[string]string{
+			"/cnab/app/image-map.json": "{}",
 		},
 	}
+
 	d, err := NewACIDriver("test-version")
 	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation. Got: %v", err)
 	assert.NotNil(t, d)
-	err = d.Run(&op)
+	_, err = d.Run(&op)
 	assert.NoErrorf(t, err, "Expected no error when running Test Operation. Got: %v", err)
 
 	// Test op with files
 
 	op = cnabdriver.Operation{
 		Action:       "install",
-		Installation: "test",
-		Parameters:   map[string]interface{}{},
-		Revision:     "01DDY0MT808KX0GGZ6SMXN4TW",
-		Image:        "simongdavies/helloworld-aci-cnab:c25f7f06fbc608e7bcfabd7e2700c5976e824286",
-		ImageType:    "docker",
+		Installation: "test-install-with-files",
+		Parameters: map[string]interface{}{
+			"param1": "value1",
+			"param2": "value2",
+		},
+		Image: bundle.InvocationImage{
+			BaseImage: bundle.BaseImage{
+				Image:     "simongdavies/helloworld-aci-cnab",
+				ImageType: "docker",
+				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+			},
+		},
+		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
 		Environment: map[string]string{
-			"CNAB_INSTALLATION_NAME": "test-aci",
+			"CNAB_INSTALLATION_NAME": "test-install-with-files",
 			"CNAB_ACTION":            "install",
 			"CNAB_BUNDLE_NAME":       "helloworld-aci",
 			"CNAB_BUNDLE_VERSION":    "0.1.0",
@@ -181,10 +233,10 @@ func TestRunAzureTest(t *testing.T) {
 	d, err = NewACIDriver("test-version")
 	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation with files. Got: %v", err)
 	assert.NotNil(t, d)
-	err = d.Run(&op)
+	_, err = d.Run(&op)
 	assert.NoErrorf(t, err, "Expected no error when running Test Operation with files. Got: %v", err)
 
-	// Test Mounting State FileShare
+	// Test Mounting Storage
 
 	fileShareEnvVars := []string{
 		"DUFFLE_ACI_DRIVER_STATE_FILESHARE",
@@ -199,6 +251,74 @@ func TestRunAzureTest(t *testing.T) {
 		os.Setenv(e, envvar)
 	}
 
+	// TODO Update to a container that writes to state and check fileshare
+
+	op = cnabdriver.Operation{
+		Action:       "install",
+		Installation: "test-install-with-state",
+		Parameters: map[string]interface{}{
+			"param1": "value1",
+			"param2": "value2",
+		},
+		Image: bundle.InvocationImage{
+			BaseImage: bundle.BaseImage{
+				Image:     "simongdavies/helloworld-aci-cnab",
+				ImageType: "docker",
+				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+			},
+		},
+		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
+		Environment: map[string]string{
+			"CNAB_INSTALLATION_NAME": "test-install-with-state",
+			"CNAB_ACTION":            "install",
+			"CNAB_BUNDLE_NAME":       "helloworld-aci",
+			"CNAB_BUNDLE_VERSION":    "0.1.0",
+		},
+		Files: map[string]string{
+			"/cnab/app/image-map.json": "{}",
+			"/tmp/test":                "testcontent",
+		},
+	}
+	d, err = NewACIDriver("test-version")
+	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation with mounted state storage. Got: %v", err)
+	assert.NotNil(t, d)
+	_, err = d.Run(&op)
+	assert.NoErrorf(t, err, "Expected no error when running Test Operation with mounted state storage. Got: %v", err)
+
+	// Test Outputs
+	// TODO Update to a container that writes to outputs and check values
+
+	op = cnabdriver.Operation{
+		Action:       "install",
+		Installation: "test-install-with-outputs",
+		Parameters: map[string]interface{}{
+			"param1": "value1",
+			"param2": "value2",
+		},
+		Image: bundle.InvocationImage{
+			BaseImage: bundle.BaseImage{
+				Image:     "simongdavies/helloworld-aci-cnab",
+				ImageType: "docker",
+				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+			},
+		},
+		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
+		Environment: map[string]string{
+			"CNAB_INSTALLATION_NAME": "test-install-with-outputs",
+			"CNAB_ACTION":            "install",
+			"CNAB_BUNDLE_NAME":       "helloworld-aci",
+			"CNAB_BUNDLE_VERSION":    "0.1.0",
+		},
+		Files: map[string]string{
+			"/cnab/app/image-map.json": "{}",
+		},
+		Outputs: []string{"/cnab/app/outputs/output1", "/cnab/app/outputs/output2"},
+	}
+	d, err = NewACIDriver("test-version")
+	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation with outputs. Got: %v", err)
+	assert.NotNil(t, d)
+	_, err = d.Run(&op)
+	assert.NoErrorf(t, err, "Expected no error when running Test Operation with outputs. Got: %v", err)
 	unSetDriverEnvironmentVars(t)
 }
 
@@ -209,6 +329,7 @@ func unSetDriverEnvironmentVars(t *testing.T) {
 			t.Logf("Unsetting Env Variable: %s", pair[0])
 			os.Unsetenv(pair[0])
 		}
+
 	}
 }
 
@@ -231,5 +352,4 @@ func getFieldValue(t *testing.T, driver cnabdriver.Driver, field string) interfa
 
 	t.Errorf("Unable to get value for field %s ", field)
 	return nil
-
 }
