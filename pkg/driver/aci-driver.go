@@ -325,6 +325,7 @@ func (d *aciDriver) exec(op *driver.Operation) (driver.OperationResult, error) {
 	}
 
 	// Check that there is a state volume if needed
+	// TODO Check that outputs are for action (needs update to op structure to include bundle details see )
 	d.hasOutputs = len(op.Outputs) > 0
 	if d.hasOutputs && !d.mountStateVolume {
 		return operationResult, errors.New("Bundle has outputs no volume mounted for state, set DUFFLE_ACI_DRIVER_STATE_* variables so that state can be retrieved")
@@ -624,7 +625,10 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 			time.Sleep(5 * time.Second)
 		} else {
 			if strings.Compare(state, "Succeeded") != 0 {
-				d.getContainerLogs(ctx, d.aciRG, d.aciName, linesOutput)
+				// Log any error getting container logs
+				if _, err = d.getContainerLogs(ctx, d.aciRG, d.aciName, linesOutput); err != nil {
+					log.Debugf("Error getting Container Logs: %v", err)
+				}
 				return fmt.Errorf("Unexpected Container Status:%s", state)
 			}
 
@@ -901,7 +905,7 @@ func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 			return fmt.Errorf("Error getting RoleDefinitions for Scope:%s Error: %v", scope, err)
 		}
 
-		if *roleDefinitions.Value().Properties.RoleName == role {
+		if *roleDefinitions.Value().RoleDefinitionProperties.RoleName == role {
 			roleDefinitionID = *roleDefinitions.Value().ID
 			break
 		}

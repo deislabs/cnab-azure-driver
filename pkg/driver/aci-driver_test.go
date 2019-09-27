@@ -257,26 +257,23 @@ func TestRunAzureTest(t *testing.T) {
 		Action:       "install",
 		Installation: "test-install-with-state",
 		Parameters: map[string]interface{}{
-			"param1": "value1",
-			"param2": "value2",
+			"INPUT1": "INPUT_1",
+			"INPUT2": "INPUT_2",
 		},
 		Image: bundle.InvocationImage{
 			BaseImage: bundle.BaseImage{
-				Image:     "simongdavies/helloworld-aci-cnab",
+				Image:     "simongdavies/azure-outputs-cnab",
 				ImageType: "docker",
-				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+				Digest:    "sha256:b7089a040b51a24d55b584c0caed81c88d22fb209dbec183b28b708cd9f3b459",
 			},
 		},
 		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
 		Environment: map[string]string{
 			"CNAB_INSTALLATION_NAME": "test-install-with-state",
 			"CNAB_ACTION":            "install",
-			"CNAB_BUNDLE_NAME":       "helloworld-aci",
-			"CNAB_BUNDLE_VERSION":    "0.1.0",
 		},
 		Files: map[string]string{
 			"/cnab/app/image-map.json": "{}",
-			"/tmp/test":                "testcontent",
 		},
 	}
 	d, err = NewACIDriver("test-version")
@@ -292,14 +289,14 @@ func TestRunAzureTest(t *testing.T) {
 		Action:       "install",
 		Installation: "test-install-with-outputs",
 		Parameters: map[string]interface{}{
-			"param1": "value1",
-			"param2": "value2",
+			"INPUT1": "INPUT_1",
+			"INPUT2": "INPUT_2",
 		},
 		Image: bundle.InvocationImage{
 			BaseImage: bundle.BaseImage{
-				Image:     "simongdavies/helloworld-aci-cnab",
+				Image:     "simongdavies/azure-outputs-cnab",
 				ImageType: "docker",
-				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+				Digest:    "sha256:b7089a040b51a24d55b584c0caed81c88d22fb209dbec183b28b708cd9f3b459",
 			},
 		},
 		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
@@ -317,9 +314,21 @@ func TestRunAzureTest(t *testing.T) {
 	d, err = NewACIDriver("test-version")
 	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation with outputs. Got: %v", err)
 	assert.NotNil(t, d)
-	_, err = d.Run(&op)
+	results, err := d.Run(&op)
 	assert.NoErrorf(t, err, "Expected no error when running Test Operation with outputs. Got: %v", err)
-	unSetDriverEnvironmentVars(t)
+	outputs := getOutputs(results)
+	assert.EqualValuesf(t, 2, len(outputs), "Expected to get 2 outputs but got %d", len(outputs))
+	if len(outputs) == 2 {
+		assert.EqualValuesf(t, "INPUT_1", outputs[0], "Expected the first output to be INPUT_1 but got %s", outputs[0])
+		assert.EqualValuesf(t, "INPUT_2", outputs[1], "Expected the first output to be INPUT_2 but got %s", outputs[1])
+	}
+}
+
+func getOutputs(results cnabdriver.OperationResult) (outputs []string) {
+	for _, item := range results.Outputs {
+		outputs = append(outputs, item)
+	}
+	return outputs
 }
 
 func unSetDriverEnvironmentVars(t *testing.T) {

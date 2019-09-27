@@ -1,8 +1,8 @@
-# Duffle ACI Driver
+# Azure CNAB Driver
 
 [![Build Status](https://dev.azure.com/deislabs/duffle-aci-driver/_apis/build/status/duffle-aci-driver?branchName=master)](https://dev.azure.com/deislabs/duffle-aci-driver/_build/latest?definitionId=15&branchName=master)
 
-The ACI Driver for Duffle enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible (e.g. [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/)). 
+The Azure CNAB Driver enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible (e.g. [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/)). 
 
 You must have an [Azure account](https://azure.microsoft.com/free/) to use this driver.
 

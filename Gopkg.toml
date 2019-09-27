@@ -30,14 +30,6 @@
   source = "github.com/simongdavies/cnab-go"
 
 [[constraint]]
-  name = "github.com/Azure/azure-sdk-for-go"
-  version = "29.0.0"
-
-[[constraint]]
-  name = "github.com/Azure/go-autorest"
-  version = "12.0.0"
-
-[[constraint]]
   name = "github.com/google/uuid"
   version = "1.1.1"
 

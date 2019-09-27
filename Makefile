@@ -8,8 +8,8 @@ INSTALL_DIR     := /usr/local/bin
 
 ifeq ($(OS),Windows_NT)
 	TARGET = $(PROJECT).exe
-	SHELL  = cmd.exe
-	CHECK  = where.exe
+	SHELL  = cmd /c
+	CHECK  = where
 else
 	TARGET = $(PROJECT)
 	SHELL  ?= bash
@@ -27,6 +27,7 @@ default: build
 
 .PHONY: build
 build:
+
 	go build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(TARGET) github.com/$(ORG)/$(PROJECT)/cmd/...
 
 .PHONY: install
@@ -58,7 +59,11 @@ test:
 
 .PHONY: test-in-azure
 test-in-azure:
+ifeq ($(OS),Windows_NT)
+	powershell -executionPolicy bypass -noexit -NoProfile -file ./test/run_azure_test.local.ps1
+else
 	./test/run_azure_test.local.sh
+endif
 
 .PHONY: lint
 lint:
@@ -72,11 +77,21 @@ GOLANGCI_VERSION := v1.16.0
 .PHONY: bootstrap
 bootstrap:
 ifndef HAS_DEP
+ifeq ($(OS),Windows_NT)
+	choco install dep -y
+else
 	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 endif
+endif
+
 ifndef HAS_GOLANGCI
+ifeq ($(OS),Windows_NT)
+	go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+else
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(GOPATH)/bin $(GOLANGCI_VERSION)
 endif
+endif
+
 ifndef HAS_GOIMPORTS
 	go get -u golang.org/x/tools/cmd/goimports
 endif
