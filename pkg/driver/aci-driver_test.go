@@ -4,16 +4,17 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/deislabs/cnab-go/bundle"
 	cnabdriver "github.com/deislabs/cnab-go/driver"
+	az "github.com/deislabs/duffle-aci-driver/pkg/azure"
+	"github.com/deislabs/duffle-aci-driver/test"
 	"github.com/stretchr/testify/assert"
 )
 
-var runazuretest = flag.Bool("runazuretest", false, "Run tests in Azure")
+var runAzureTest = flag.Bool("runazuretest", false, "Run tests in Azure")
+var verboseDriver = flag.Bool("verbosedriveroutput", false, "Set Verbose Output in Azure Driver")
 
 func TestNewACIDriver(t *testing.T) {
 
@@ -64,7 +65,8 @@ func TestNewACIDriver(t *testing.T) {
 		{"No error when setting DUFFLE_ACI_DRIVER__MOUNT_POINT", false, "", map[string]string{"DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT": "/mnt/path"}, []string{"DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT"}, map[string]interface{}{"mountStateVolume": true}},
 	}
 	// Unset any DUFFLE_ACI_DRIVER environment variables as these will make the tests fail
-	unSetDriverEnvironmentVars(t)
+	test.UnSetDriverEnvironmentVars(t)
+	defer test.UnSetDriverEnvironmentVars(t)
 
 	for _, tc := range testcases {
 		for _, n := range tc.envVarsToUnset {
@@ -83,7 +85,7 @@ func TestNewACIDriver(t *testing.T) {
 				assert.NotNil(t, d)
 				if d != nil {
 					for k, v := range tc.valuesToCheck {
-						assert.Equal(t, v, getFieldValue(t, d, k))
+						assert.Equal(t, v, test.GetFieldValue(t, d, k))
 					}
 				}
 			}
@@ -96,12 +98,10 @@ func TestNewACIDriver(t *testing.T) {
 	assert.Equal(t, true, d.Handles(cnabdriver.ImageTypeDocker))
 	assert.Equal(t, true, d.Handles(cnabdriver.ImageTypeOCI))
 	assert.Equal(t, false, d.Handles(cnabdriver.ImageTypeQCOW))
-
-	unSetDriverEnvironmentVars(t)
 }
 func TestCanWriteOutputs(t *testing.T) {
 	os.Setenv("DUFFLE_ACI_DRIVER_LOCATION", "test")
-	defer unSetDriverEnvironmentVars(t)
+	defer test.UnSetDriverEnvironmentVars(t)
 	op := cnabdriver.Operation{
 		Action:       "install",
 		Installation: "test",
@@ -139,11 +139,11 @@ func TestCanWriteOutputs(t *testing.T) {
 }
 func TestRunAzureTest(t *testing.T) {
 
-	if !*runazuretest {
+	if !*runAzureTest {
 		t.Skip("Not running tests in Azure")
 	}
 
-	unSetDriverEnvironmentVars(t)
+	test.UnSetDriverEnvironmentVars(t)
 	// Set environments vars using TEST_ to configure the driver before running the test, if these are not set the the driver tries to login using the cloudshell or az cli
 	loginEnvVars := []string{
 		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID",
@@ -158,10 +158,11 @@ func TestRunAzureTest(t *testing.T) {
 		t.Logf("Setting Env Variable: %s=%s", e, envvar)
 		os.Setenv(e, envvar)
 	}
-	defer unSetDriverEnvironmentVars(t)
+	defer test.UnSetDriverEnvironmentVars(t)
 
 	// Set verbose output for the driver
-	os.Setenv("DUFFLE_ACI_DRIVER_VERBOSE", "true")
+	test.SetLoggingLevel(verboseDriver)
+
 	// Set a default location if not set
 	envvar := os.Getenv("DUFFLE_ACI_DRIVER_LOCATION")
 	if len(envvar) == 0 {
@@ -171,15 +172,12 @@ func TestRunAzureTest(t *testing.T) {
 	op := cnabdriver.Operation{
 		Action:       "install",
 		Installation: "test-install",
-		Parameters: map[string]interface{}{
-			"param1": "value1",
-			"param2": "value2",
-		},
+		Parameters:   map[string]interface{}{},
 		Image: bundle.InvocationImage{
 			BaseImage: bundle.BaseImage{
 				Image:     "simongdavies/helloworld-aci-cnab",
 				ImageType: "docker",
-				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+				Digest:    "sha256:a9137fc4cb1d3c79533a45bbaa437d6f45e501a61b9c882a1ca4960fafe0ae3c",
 			},
 		},
 		Environment: map[string]string{
@@ -207,15 +205,12 @@ func TestRunAzureTest(t *testing.T) {
 	op = cnabdriver.Operation{
 		Action:       "install",
 		Installation: "test-install-with-files",
-		Parameters: map[string]interface{}{
-			"param1": "value1",
-			"param2": "value2",
-		},
+		Parameters:   map[string]interface{}{},
 		Image: bundle.InvocationImage{
 			BaseImage: bundle.BaseImage{
 				Image:     "simongdavies/helloworld-aci-cnab",
 				ImageType: "docker",
-				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
+				Digest:    "sha256:a9137fc4cb1d3c79533a45bbaa437d6f45e501a61b9c882a1ca4960fafe0ae3c",
 			},
 		},
 		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
@@ -242,29 +237,27 @@ func TestRunAzureTest(t *testing.T) {
 		"DUFFLE_ACI_DRIVER_STATE_FILESHARE",
 		"DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME",
 		"DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY",
-		"DUFFLE_ACI_DRIVER_STATE_PATH",
-		"DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT"}
+	}
 
 	for _, e := range fileShareEnvVars {
-		envvar := os.Getenv(fmt.Sprintf("TEST_%s", e))
+		envvarName := fmt.Sprintf("TEST_%s", e)
+		envvar := os.Getenv(envvarName)
+		if len(envvar) == 0 {
+			t.Logf("Environment Variable %s is not set", envvarName)
+			t.FailNow()
+		}
 		t.Logf("Setting Env Variable: %s=%s", e, envvar)
 		os.Setenv(e, envvar)
 	}
-
-	// TODO Update to a container that writes to state and check fileshare
-
+	test.SetStatePathEnvironmentVariables()
 	op = cnabdriver.Operation{
 		Action:       "install",
 		Installation: "test-install-with-state",
-		Parameters: map[string]interface{}{
-			"INPUT1": "INPUT_1",
-			"INPUT2": "INPUT_2",
-		},
 		Image: bundle.InvocationImage{
 			BaseImage: bundle.BaseImage{
 				Image:     "simongdavies/azure-outputs-cnab",
 				ImageType: "docker",
-				Digest:    "sha256:b7089a040b51a24d55b584c0caed81c88d22fb209dbec183b28b708cd9f3b459",
+				Digest:    "sha256:9613017ac6738d7fce618987c293991cae9f996f8dd62c23fc4065580bbd3476",
 			},
 		},
 		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
@@ -281,22 +274,23 @@ func TestRunAzureTest(t *testing.T) {
 	assert.NotNil(t, d)
 	_, err = d.Run(&op)
 	assert.NoErrorf(t, err, "Expected no error when running Test Operation with mounted state storage. Got: %v", err)
+	afs, err := az.NewFileShare(os.Getenv("TEST_DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME"), os.Getenv("TEST_DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY"), os.Getenv("TEST_DUFFLE_ACI_DRIVER_STATE_FILESHARE"))
+	assert.NoErrorf(t, err, "Expected no error when creating FileShare object. Got: %v", err)
+	// Check State was written
+	content, err := afs.ReadFileFromShare(os.Getenv("DUFFLE_ACI_DRIVER_STATE_PATH") + "/teststate")
+	assert.NoErrorf(t, err, "Expected no error when reading state. Got: %v", err)
+	assert.EqualValuesf(t, "TEST", content, "Expected state to be TEST but got %s", content)
 
 	// Test Outputs
-	// TODO Update to a container that writes to outputs and check values
 
 	op = cnabdriver.Operation{
 		Action:       "install",
 		Installation: "test-install-with-outputs",
-		Parameters: map[string]interface{}{
-			"INPUT1": "INPUT_1",
-			"INPUT2": "INPUT_2",
-		},
 		Image: bundle.InvocationImage{
 			BaseImage: bundle.BaseImage{
 				Image:     "simongdavies/azure-outputs-cnab",
 				ImageType: "docker",
-				Digest:    "sha256:b7089a040b51a24d55b584c0caed81c88d22fb209dbec183b28b708cd9f3b459",
+				Digest:    "sha256:6abd5787989b6303b91fee441e351829bd3921601ffcb390681884ee49a3a38f",
 			},
 		},
 		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
@@ -317,10 +311,10 @@ func TestRunAzureTest(t *testing.T) {
 	results, err := d.Run(&op)
 	assert.NoErrorf(t, err, "Expected no error when running Test Operation with outputs. Got: %v", err)
 	outputs := getOutputs(results)
-	assert.EqualValuesf(t, 2, len(outputs), "Expected to get 2 outputs but got %d", len(outputs))
+	assert.EqualValuesf(t, 2, len(outputs), "Expected to get 2 outputs when running Test Operation with outputs but got %d", len(outputs))
 	if len(outputs) == 2 {
-		assert.EqualValuesf(t, "INPUT_1", outputs[0], "Expected the first output to be INPUT_1 but got %s", outputs[0])
-		assert.EqualValuesf(t, "INPUT_2", outputs[1], "Expected the first output to be INPUT_2 but got %s", outputs[1])
+		assert.EqualValuesf(t, "OUTPUT_1", outputs[0], "Expected the first output to be OUTPUT_1 when running Test Operation with outputs but got %s", outputs[0])
+		assert.EqualValuesf(t, "OUTPUT_2", outputs[1], "Expected the first output to be OUTPUT_2 when running Test Operation with outputs but got %s", outputs[1])
 	}
 }
 
@@ -329,36 +323,4 @@ func getOutputs(results cnabdriver.OperationResult) (outputs []string) {
 		outputs = append(outputs, item)
 	}
 	return outputs
-}
-
-func unSetDriverEnvironmentVars(t *testing.T) {
-	for _, e := range os.Environ() {
-		pair := strings.Split(e, "=")
-		if strings.HasPrefix(pair[0], "DUFFLE_ACI_DRIVER") {
-			t.Logf("Unsetting Env Variable: %s", pair[0])
-			os.Unsetenv(pair[0])
-		}
-
-	}
-}
-
-func getFieldValue(t *testing.T, driver cnabdriver.Driver, field string) interface{} {
-	r := reflect.ValueOf(driver)
-	f := reflect.Indirect(r).FieldByName(field)
-	if f.IsValid() {
-		switch f.Kind() {
-		case reflect.String:
-			return f.String()
-		case reflect.Int:
-			return f.Int()
-		case reflect.Bool:
-			return f.Bool()
-		default:
-			t.Errorf("field %s has unexpected type %s ", field, f.Kind())
-			return nil
-		}
-	}
-
-	t.Errorf("Unable to get value for field %s ", field)
-	return nil
 }

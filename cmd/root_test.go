@@ -49,7 +49,7 @@ func TestInput(t *testing.T) {
 			"param2": "value2",
 		},
 		Image: bundle.InvocationImage{
-			bundle.BaseImage{
+			BaseImage: bundle.BaseImage{
 				Image:     "testing.azurecr.io/duffle/test",
 				ImageType: "docker",
 				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb"},

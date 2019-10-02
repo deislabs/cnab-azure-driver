@@ -28,10 +28,12 @@ import (
 )
 
 const (
-	userAgentPrefix = "DuffleACIDriver"
-	fileMountPoint  = "/mnt/BundleFiles"
-	fileMountName   = "bundlefilevolume"
-	stateMountName  = "state"
+	userAgentPrefix      = "DuffleACIDriver"
+	fileMountPoint       = "/mnt/BundleFiles"
+	fileMountName        = "bundlefilevolume"
+	stateMountName       = "state"
+	cnabOutputDirName    = "outputs"
+	cnabOutputMountPoint = "/cnab/app/"
 )
 
 // aciDriver runs Docker and OCI invocation images in ACI
@@ -278,8 +280,8 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 		}
 
 		d.stateFileShare = config["DUFFLE_ACI_DRIVER_STATE_FILESHARE"]
-		d.stateMountPoint = config["DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT"]
-		d.statePath = config["DUFFLE_ACI_DRIVER_STATE_PATH"]
+		d.stateMountPoint = strings.TrimSpace(strings.TrimSuffix(config["DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT"], "/"))
+		d.statePath = strings.TrimSpace(strings.TrimSuffix(config["DUFFLE_ACI_DRIVER_STATE_PATH"], "/"))
 		d.stateStorageAccountName = config["DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME"]
 		d.stateStorageAccountKey = config["DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY"]
 	}
@@ -346,11 +348,33 @@ func (d *aciDriver) exec(op *driver.Operation) (driver.OperationResult, error) {
 		return operationResult, fmt.Errorf("running invocation instance using ACI failed: %v", err)
 	}
 
-	return operationResult, nil
+	// Get any outputs
+	return d.getOutputs(op, &operationResult)
+}
+
+func (d *aciDriver) getOutputs(op *driver.Operation, operationResult *driver.OperationResult) (driver.OperationResult, error) {
+	if d.hasOutputs {
+		afs, err := az.NewFileShare(d.stateStorageAccountName, d.stateStorageAccountKey, d.stateFileShare)
+		if err != nil {
+			return *operationResult, fmt.Errorf("Error creating AzureFileShare: %v", err)
+		}
+		cnabOutputPrefix := cnabOutputMountPoint + cnabOutputDirName
+		for _, fullOutputName := range op.Outputs {
+			outputName := strings.TrimPrefix(fullOutputName, cnabOutputPrefix+"/")
+			fileName := fmt.Sprintf("%s/%s/%s", d.statePath, cnabOutputDirName, outputName)
+			log.Debugf("Reading output for file: %s", fileName)
+			content, err := afs.ReadFileFromShare(fileName)
+			operationResult.Outputs[outputName] = content
+			if err != nil {
+				return *operationResult, fmt.Errorf("Error reading output %s from AzureFileShare: %v", outputName, err)
+			}
+		}
+	}
+
+	return *operationResult, nil
 }
 
 func (d *aciDriver) setAzureSubscriptionID() error {
-
 	subscriptionsClient := az.GetSubscriptionsClient(d.loginInfo.Authorizer, d.userAgent)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -749,7 +773,6 @@ func locationIsAvailable(location string, locations []string) bool {
 		}
 
 	}
-
 	return false
 }
 
@@ -828,17 +851,24 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 	// value{n} contains the file content, the script below is injected into the container so that the expected files are created before the run tool is executed
 	var scriptBuilder strings.Builder
 	var command []string
-	if hasFiles {
-		scriptBuilder.WriteString(fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;", fileMountPoint))
-	}
 
-	if d.hasOutputs {
-		scriptBuilder.WriteString("mkdir -p ${STATE_PATH}/output;ln -s ${STATE_PATH}/output /cnab/app/outputs;")
-	}
+	if hasFiles || d.hasOutputs {
+		if hasFiles {
+			scriptBuilder.WriteString(fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;", fileMountPoint))
+		}
 
-	if scriptBuilder.Len() > 0 {
+		if len(d.statePath) > 0 {
+			statePathCmd := fmt.Sprintf("mkdir -p ${STATE_PATH};")
+			scriptBuilder.WriteString(statePathCmd)
+		}
+
+		if d.hasOutputs {
+			outputsCmd := fmt.Sprintf("mkdir -p ${STATE_PATH}/%[2]s;ln -s ${STATE_PATH}/%[2]s %[1]s%[2]s;", cnabOutputMountPoint, cnabOutputDirName)
+			scriptBuilder.WriteString(outputsCmd)
+		}
+
 		scriptBuilder.WriteString("/cnab/app/run")
-		command = []string{"sh", "-c", scriptBuilder.String()}
+		command = []string{"/bin/bash", "-e", "-c", scriptBuilder.String()}
 	}
 
 	var registrycredentials []containerinstance.ImageRegistryCredential

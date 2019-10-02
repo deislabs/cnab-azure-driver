@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:30cfe9b426a3735fb27a0aa8dde3ba3879871dc8ca89c0d433f35e93881816a3"
+  digest = "1:331fa4f7c2dfd1491379b3c6f7a0a08d79a90d0b2b299710ba860605ad68031b"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = [
     "services/authorization/mgmt/2015-07-01/authorization",
@@ -10,6 +10,7 @@
     "services/msi/mgmt/2018-11-30/msi",
     "services/resources/mgmt/2015-11-01/subscriptions",
     "services/resources/mgmt/2017-05-10/resources",
+    "storage",
     "version",
   ]
   pruneopts = "UT"
@@ -247,6 +248,7 @@
     "github.com/Azure/azure-sdk-for-go/services/msi/mgmt/2018-11-30/msi",
     "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2015-11-01/subscriptions",
     "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources",
+    "github.com/Azure/azure-sdk-for-go/storage",
     "github.com/Azure/go-autorest/autorest",
     "github.com/Azure/go-autorest/autorest/adal",
     "github.com/Azure/go-autorest/autorest/azure",

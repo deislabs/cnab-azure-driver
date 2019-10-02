@@ -44,14 +44,13 @@ func runRootCmd(cmd *cobra.Command, args []string) error {
 		HandlesImageTypes()
 		return nil
 	}
+
 	return RunOperation()
 }
 
 // RunOperation a bundle operation using ACI Driver
 func RunOperation() error {
-
 	log.SetOutput(os.Stdout)
-
 	verbose := os.Getenv("DUFFLE_ACI_DRIVER_VERBOSE")
 	if len(verbose) > 0 && strings.ToLower(verbose) == "true" {
 		log.SetLevel(log.DebugLevel)
@@ -69,7 +68,6 @@ func RunOperation() error {
 	if len(op.Outputs) > 0 && len(outputDirName) == 0 {
 		return fmt.Errorf("Bundle has %d outputs but CNAB_OUTPUT_DIR is not set", len(op.Outputs))
 	}
-
 	// The output directory should exist and be a directory
 
 	info, err := os.Stat(outputDirName)
@@ -91,6 +89,7 @@ func RunOperation() error {
 	if err != nil {
 		return fmt.Errorf("Running %s action on %s Error:%v", op.Action, op.Installation, err)
 	}
+
 	if len(opResult.Outputs) != len(op.Outputs) {
 		return fmt.Errorf("Expected %d Outputs but go %d", len(op.Outputs), len(opResult.Outputs))
 	}
@@ -100,7 +99,6 @@ func RunOperation() error {
 
 // WriteOutputs writes the outputs from an operation to the location expected by the Command Driver
 func WriteOutputs(outputDirName string, results cnabdriver.OperationResult) error {
-
 	if len(results.Outputs) == 0 {
 		return nil
 	}

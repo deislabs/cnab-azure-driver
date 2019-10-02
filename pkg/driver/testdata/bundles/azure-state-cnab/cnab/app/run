@@ -8,7 +8,11 @@ name=$CNAB_INSTALLATION_NAME
 case $action in
     install)
     echo "$(date) Install action"
-    echo ${INPUT_1} > "${STATE_PATH}/output"
+    echo "${STATE_PATH}/teststate"
+    ls -al "${STATE_PATH}"
+    echo -n "TEST" > "${STATE_PATH}/teststate"
+    ls -al "${STATE_PATH}/teststate"
+    cat "${STATE_PATH}/teststate"
     ;;
     uninstall)
     echo "uninstall action"
@@ -16,6 +20,7 @@ case $action in
     upgrade)
     echo "Upgrade action"
     ;;
+    *)
     echo "No action for $action"
     ;;
 esac
