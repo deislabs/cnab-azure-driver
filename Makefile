@@ -1,4 +1,4 @@
-PROJECT         := duffle-aci-driver
+PROJECT         := cnab-azure
 ORG             := deislabs
 BINDIR          := $(CURDIR)/bin
 GOFLAGS         :=

@@ -8,8 +8,8 @@ import (
 
 	"github.com/deislabs/cnab-go/bundle"
 	cnabdriver "github.com/deislabs/cnab-go/driver"
-	az "github.com/deislabs/duffle-aci-driver/pkg/azure"
-	"github.com/deislabs/duffle-aci-driver/test"
+	az "github.com/deislabs/cnab-azure-driver/pkg/azure"
+	"github.com/deislabs/cnab-azure-driver/test"
 	"github.com/stretchr/testify/assert"
 )
 

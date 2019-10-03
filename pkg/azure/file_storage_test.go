@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/deislabs/duffle-aci-driver/test"
+	"github.com/deislabs/cnab-azure-driver/test"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )

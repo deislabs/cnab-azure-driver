@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	az "github.com/deislabs/duffle-aci-driver/pkg/azure"
+	az "github.com/deislabs/cnab-azure-driver/pkg/azure"
 
 	"os"
 	"strings"

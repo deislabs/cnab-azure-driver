@@ -15,27 +15,27 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/deislabs/duffle-aci-driver/pkg/driver"
+	"github.com/deislabs/cnab-azure-driver/pkg/driver"
 )
 
-// Version is the current version of duffle-aci-driver
+// Version is the current version of cnab-azure
 var Version string
 
 var handles bool
 
 var rootCmd = &cobra.Command{
-	Use:          "duffle-aci-driver",
-	Short:        "duffle-aci-driver is a duffle driver to execute CNAB actions",
-	Long:         `A duffle driver to execute CNAB actions using Azure ACI`,
+	Use:          "cnab-azure",
+	Short:        "cnab-azure is a cnab-go driver to execute CNAB actions",
+	Long:         `A cnab-go driver to execute CNAB actions using Azure ACI`,
 	RunE:         runRootCmd,
 	SilenceUsage: true,
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the aci driver version",
+	Short: "Print the Azure driver version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("duffle-aci-driver version:%v \n", Version)
+		fmt.Printf("cnab-azure version:%v \n", Version)
 	},
 }
 

@@ -1,6 +1,6 @@
 # Azure CNAB Driver
 
-[![Build Status](https://dev.azure.com/deislabs/duffle-aci-driver/_apis/build/status/duffle-aci-driver?branchName=master)](https://dev.azure.com/deislabs/duffle-aci-driver/_build/latest?definitionId=15&branchName=master)
+[![Build Status](https://dev.azure.com/deislabs/cnab-azure-driver/_apis/build/status/cnab-azure-driver?branchName=master)](https://dev.azure.com/deislabs/cnab-azure-driver/_build/latest?definitionId=15&branchName=master)
 
 The Azure CNAB Driver enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible (e.g. [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/)). 
 
@@ -10,12 +10,12 @@ You must have an [Azure account](https://azure.microsoft.com/free/) to use this 
 
 The easiest way to get started is to use [Azure Cloud Shell](https://shell.azure.com). 
 
-#### 1. [Get the latest Duffle release for Linux](https://github.com/deislabs/duffle/releases).
+#### 1. [Get the latest CNAB Azure Driver release for Linux](https://github.com/deislabs/cnab-azure-driver/releases).
 
 ```console
-curl https://github.com/deislabs/duffle/releases/download/<latest-release>/duffle-linux-amd64 -L -o duffle
-mv duffle $HOME/bin/duffle
-chmod +x $HOME/bin/duffle
+curl https://github.com/deislabs/cnab-azure-driver/releases/download/<latest-release>/cnab-azure-linux-amd64 -L -o cnab-azure
+mv cnab-azure $HOME/bin/cnab-azure
+chmod +x $HOME/bin/cnab-azure
 ```
 
 #### 2. Run the command duffle init to setup duffle:
@@ -36,22 +36,22 @@ $USER@Azure:~$ duffle init
 ==> Generating a new public keyring at /home/$USER/.duffle/public.ring
 ```
 
-#### 3. [Get the latest duffle-aci-driver release for linux](https://github.com/deislabs/duffle-aci-driver/releases)
+#### 3. [Get the latest cnab-azure release for linux](https://github.com/deislabs/cnab-azure-driver/releases)
 
 ```console
-curl https://github.com/deislabs/duffle-aci-driver/releases/download/<latest-release>/duffle-aci-driver-linux-amd64 -L -o duffle-aci-driver
-mv duffle-aci-driver $HOME/bin/duffle-aci-driver
-chmod +x $HOME/bin/duffle-aci-driver
+curl https://github.com/deislabs/cnab-azure-driver/releases/download/<latest-release>/cnab-azure-driver-linux-amd64 -L -o cnab-azure
+mv cnab-azure $HOME/bin/cnab-azure
+chmod +x $HOME/bin/cnab-azure
 ```
 
 #### 4. Install a sample bundle:
 
-A simple helloworld-aci bundle can be found [here](https://github.com/deislabs/duffle/tree/duffle-aci-driver/examples/helloworld-aci). 
+A simple helloworld-aci bundle can be found [here](https://github.com/deislabs/duffle/tree/cnab-azure-driver/examples/helloworld-aci). 
 
 The sample bundle can be imported from the provided archive:
 
 ```console
-curl https://raw.githubusercontent.com/deislabs/duffle-aci-driver/master/examples/helloworld-aci/helloworld-aci.tgz -L -o /tmp/helloworld-aci.tgz
+curl https://raw.githubusercontent.com/deislabs/cnab-azure-driver/master/examples/helloworld-aci/helloworld-aci.tgz -L -o /tmp/helloworld-aci.tgz
 duffle import /tmp/helloworld-aci.tgz -d ~/.duffle/bundles
 ```
 
