@@ -1,5 +1,5 @@
 PROJECT         := cnab-azure-driver
-TARGET          := cnab-azure
+FILENAME        := cnab-azure
 ORG             := deislabs
 BINDIR          := $(CURDIR)/bin
 GOFLAGS         :=
@@ -8,11 +8,11 @@ TESTFLAGS       := -v
 INSTALL_DIR     := /usr/local/bin
 
 ifeq ($(OS),Windows_NT)
-	TARGET = $(PROJECT).exe
+	TARGET = $(FILENAME).exe
 	SHELL  = cmd /c
 	CHECK  = where
 else
-	TARGET = $(PROJECT)
+	TARGET = $(FILENAME)
 	SHELL  ?= bash
 	CHECK  ?= which
 endif
@@ -22,6 +22,7 @@ VERSION   ?= ${GIT_TAG}
 # Replace + with -, for Docker image tag compliance
 IMAGE_TAG ?= $(subst +,-,$(VERSION))
 LDFLAGS   += -X main.Version=$(VERSION)
+
 
 .PHONY: default
 default: build
@@ -40,15 +41,19 @@ CX_ARCHS = amd64
 
 .PHONY: build-release
 build-release:
+ifeq ($(OS),Windows_NT)
+	powershell -executionPolicy bypass -NoLogo -NoProfile -File ./build/build-release.ps1 -oses '$(CX_OSES)' -arch  $(CX_ARCHS) -ldflags $(LDFLAGS) -filename $(FILENAME) -project $(PROJECT) -bindir $(BINDIR) -org $(ORG)
+else
 	@for os in $(CX_OSES); do \
 		echo "building $$os"; \
 		for arch in $(CX_ARCHS); do \
-			GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 go build -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(PROJECT)-$$os-$$arch github.com/$(ORG)/$(PROJECT)/cmd/...; \
+			GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 go build -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(TARGET)-$$os-$$arch github.com/$(ORG)/$(PROJECT)/cmd/...; \
 		done; \
 		if [ $$os = 'windows' ]; then \
-			mv $(BINDIR)/$(PROJECT)-$$os-$$arch $(BINDIR)/$(PROJECT)-$$os-$$arch.exe; \
+			mv $(BINDIR)/$(TARGET)-$$os-$$arch $(BINDIR)/$(TARGET)-$$os-$$arch.exe; \
 		fi; \
 	done
+endif
 
 .PHONY: debug
 debug:
@@ -61,7 +66,7 @@ test:
 .PHONY: test-in-azure
 test-in-azure:
 ifeq ($(OS),Windows_NT)
-	powershell -executionPolicy bypass -noexit -NoProfile -file ./test/run_azure_test.local.ps1
+	powershell -executionPolicy bypass -NoLogo -NoProfile -file ./test/run_azure_test.local.ps1
 else
 	./test/run_azure_test.local.sh
 endif
