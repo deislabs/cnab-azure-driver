@@ -1,4 +1,5 @@
-PROJECT         := cnab-azure
+PROJECT         := cnab-azure-driver
+TARGET          := cnab-azure
 ORG             := deislabs
 BINDIR          := $(CURDIR)/bin
 GOFLAGS         :=

@@ -6,9 +6,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/deislabs/cnab-azure-driver/test"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/deislabs/cnab-azure-driver/test"
 )
 
 var runAzureTest = flag.Bool("runazuretest", false, "Run tests in Azure")

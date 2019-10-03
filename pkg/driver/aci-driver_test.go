@@ -8,9 +8,10 @@ import (
 
 	"github.com/deislabs/cnab-go/bundle"
 	cnabdriver "github.com/deislabs/cnab-go/driver"
+	"github.com/stretchr/testify/assert"
+
 	az "github.com/deislabs/cnab-azure-driver/pkg/azure"
 	"github.com/deislabs/cnab-azure-driver/test"
-	"github.com/stretchr/testify/assert"
 )
 
 var runAzureTest = flag.Bool("runazuretest", false, "Run tests in Azure")
