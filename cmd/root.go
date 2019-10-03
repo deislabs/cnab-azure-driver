@@ -51,7 +51,7 @@ func runRootCmd(cmd *cobra.Command, args []string) error {
 // RunOperation a bundle operation using ACI Driver
 func RunOperation() error {
 	log.SetOutput(os.Stdout)
-	verbose := os.Getenv("DUFFLE_ACI_DRIVER_VERBOSE")
+	verbose := os.Getenv("CNAB_AZURE_VERBOSE")
 	if len(verbose) > 0 && strings.ToLower(verbose) == "true" {
 		log.SetLevel(log.DebugLevel)
 		log.Info("Verbose Logging Enabled")

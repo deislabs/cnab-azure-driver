@@ -13,7 +13,7 @@ import (
 func UnSetDriverEnvironmentVars(t *testing.T) {
 	for _, e := range os.Environ() {
 		pair := strings.Split(e, "=")
-		if strings.HasPrefix(pair[0], "DUFFLE_ACI_DRIVER") {
+		if strings.HasPrefix(pair[0], "CNAB_AZURE") {
 			t.Logf("Unsetting Env Variable: %s", pair[0])
 			os.Unsetenv(pair[0])
 		}
@@ -46,6 +46,6 @@ func SetLoggingLevel(verbose *bool) {
 	}
 }
 func SetStatePathEnvironmentVariables() {
-	os.Setenv("DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT", "/cnab/app/state/")
-	os.Setenv("DUFFLE_ACI_DRIVER_STATE_PATH", uuid.New().String())
+	os.Setenv("CNAB_AZURE_STATE_MOUNT_POINT", "/cnab/app/state/")
+	os.Setenv("CNAB_AZURE_STATE_PATH", uuid.New().String())
 }

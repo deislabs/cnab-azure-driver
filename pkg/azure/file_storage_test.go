@@ -160,9 +160,9 @@ func setUpAzureTest(t *testing.T) map[string]string {
 	test.SetLoggingLevel(verboseDriver)
 	test.UnSetDriverEnvironmentVars(t)
 	testShareDetails := map[string]string{
-		"shareName":   "DUFFLE_ACI_DRIVER_STATE_FILESHARE",
-		"accountName": "DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME",
-		"accountKey":  "DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY",
+		"shareName":   "CNAB_AZURE_STATE_FILESHARE",
+		"accountName": "CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME",
+		"accountKey":  "CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY",
 	}
 	for k, v := range testShareDetails {
 		envvarName := fmt.Sprintf("TEST_%s", v)

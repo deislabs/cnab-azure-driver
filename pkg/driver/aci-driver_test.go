@@ -28,44 +28,44 @@ func TestNewACIDriver(t *testing.T) {
 		valuesToCheck  map[string]interface{}
 	}{
 
-		{"Either DUFFLE_ACI_DRIVER_LOCATION or DUFFLE_ACI_DRIVER_RESOURCE_GROUP must be set", true, "ACI Driver requires DUFFLE_ACI_DRIVER_LOCATION environment variable or an existing Resource Group in DUFFLE_ACI_DRIVER_RESOURCE_GROUP", map[string]string{}, []string{}, map[string]interface{}{}},
-		{"No Error if DUFFLE_ACI_DRIVER_LOCATION is set", false, "", map[string]string{"DUFFLE_ACI_DRIVER_LOCATION": "test"}, []string{}, map[string]interface{}{"userAgent": "DuffleACIDriver-test-version", "aciLocation": "test"}},
-		{"No Error if DUFFLE_ACI_DRIVER_RESOURCE_GROUP is set", false, "", map[string]string{"DUFFLE_ACI_DRIVER_RESOURCE_GROUP": "test"}, []string{"DUFFLE_ACI_DRIVER_LOCATION"}, map[string]interface{}{"aciRG": "test"}},
-		{"No Error if DUFFLE_ACI_DRIVER_DELETE_RESOURCES is set", false, "", map[string]string{"DUFFLE_ACI_DRIVER_DELETE_RESOURCES": "true"}, []string{}, map[string]interface{}{"deleteACIResources": true}},
-		{"Both DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set 1", true, "All of DUFFLE_ACI_DRIVER_CLIENT_ID,DUFFLE_ACI_DRIVER_CLIENT_SECRET must be set when one is set. DUFFLE_ACI_DRIVER_CLIENT_SECRET is not set", map[string]string{"DUFFLE_ACI_DRIVER_CLIENT_ID": "test"}, []string{}, map[string]interface{}{}},
-		{"Both DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set 1", true, "All of DUFFLE_ACI_DRIVER_CLIENT_ID,DUFFLE_ACI_DRIVER_CLIENT_SECRET must be set when one is set. DUFFLE_ACI_DRIVER_CLIENT_ID is not set", map[string]string{"DUFFLE_ACI_DRIVER_CLIENT_SECRET": "test"}, []string{"DUFFLE_ACI_DRIVER_CLIENT_ID"}, map[string]interface{}{}},
-		{"If DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET are set then DUFFLE_ACI_DRIVER_TENANT_ID should be set", true, "DUFFLE_ACI_DRIVER_TENANT_ID should be set when DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET or DUFFLE_ACI_DRIVER_APP_ID are set", map[string]string{"DUFFLE_ACI_DRIVER_CLIENT_ID": "test"}, []string{}, map[string]interface{}{}},
-		{"Either DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET or DUFFLE_ACI_DRIVER_APP_ID should be set not both", true, "either DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET or DUFFLE_ACI_DRIVER_APP_ID should be set not both", map[string]string{"DUFFLE_ACI_DRIVER_APP_ID": "test"}, []string{}, map[string]interface{}{}},
-		{"No Error if DUFFLE_ACI_DRIVER_CLIENT_ID, DUFFLE_ACI_DRIVER_CLIENT_SECRET and DUFFLE_ACI_DRIVER_TENANT_ID are set", false, "", map[string]string{"DUFFLE_ACI_DRIVER_TENANT_ID": "test"}, []string{"DUFFLE_ACI_DRIVER_APP_ID"}, map[string]interface{}{}},
-		{"If DUFFLE_ACI_DRIVER_TENANT_ID is set DUFFLE_ACI_DRIVER_APP_ID or DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set", true, "DUFFLE_ACI_DRIVER_TENANT_ID should not be set when DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET or DUFFLE_ACI_DRIVER_APP_ID are not set", map[string]string{}, []string{"DUFFLE_ACI_DRIVER_CLIENT_ID", "DUFFLE_ACI_DRIVER_CLIENT_SECRET"}, map[string]interface{}{}},
-		{"No Error if DUFFLE_ACI_DRIVER_TENANT_ID and DUFFLE_ACI_DRIVER_APP_ID are set", false, "", map[string]string{"DUFFLE_ACI_DRIVER_APP_ID": "test"}, []string{}, map[string]interface{}{}},
-		{"If DUFFLE_ACI_DRIVER_APP_ID is set DUFFLE_ACI_DRIVER_TENANT_ID should be set", true, "DUFFLE_ACI_DRIVER_TENANT_ID should be set when DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET or DUFFLE_ACI_DRIVER_APP_ID are set", map[string]string{}, []string{"DUFFLE_ACI_DRIVER_TENANT_ID"}, map[string]interface{}{}},
-		{"No error when setting DUFFLE_ACI_DRIVER_MSI_TYPE to system", false, "", map[string]string{"DUFFLE_ACI_DRIVER_MSI_TYPE": "system"}, []string{"DUFFLE_ACI_DRIVER_APP_ID"}, map[string]interface{}{"msiType": "system"}},
-		{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID must be set if user MSI is being used", true, "ACI Driver requires DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable when DUFFLE_ACI_DRIVER_MSI_TYPE is set to user", map[string]string{"DUFFLE_ACI_DRIVER_MSI_TYPE": "user"}, []string{}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID must be valid format", true, "DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable parsing error: parsing failed for invalid. Invalid resource Id format", map[string]string{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID": "invalid"}, []string{}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID should be correct RP and Type", true, "DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable RP type should be Microsoft.ManagedIdentity/userAssignedIdentities got: Microsoft.Storage/storageAccounts", map[string]string{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.Storage/storageAccounts/name"}, []string{}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID should be correct Type", true, "DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable RP type should be Microsoft.ManagedIdentity/userAssignedIdentities got: Microsoft.ManagedIdentity/storageAccounts", map[string]string{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/storageAccounts/name"}, []string{}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID should be correct RP", true, "DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID environment variable RP type should be Microsoft.ManagedIdentity/userAssignedIdentities got: Microsoft.Storage/userAssignedIdentities", map[string]string{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.Storage/userAssignedIdentities/name"}, []string{}, map[string]interface{}{}},
-		{"No error when setting DUFFLE_ACI_DRIVER_RESOURCE_GROUP", false, "", map[string]string{"DUFFLE_ACI_DRIVER_USER_MSI_RESOURCE_ID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/userAssignedIdentities/name"}, []string{}, map[string]interface{}{"userMSIResourceID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/userAssignedIdentities/name", "msiType": "user"}},
-		{"No error when setting DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID", false, "", map[string]string{"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID": "11111111-1111-1111-1111-111111111111"}, []string{}, map[string]interface{}{"subscriptionID": "11111111-1111-1111-1111-111111111111"}},
-		{"DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD should be set if DUFFLE_ACI_DRIVER_REGISTRY_USERNAME is set", true, "All of DUFFLE_ACI_DRIVER_REGISTRY_USERNAME,DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD must be set when one is set. DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD is not set", map[string]string{"DUFFLE_ACI_DRIVER_REGISTRY_USERNAME": "test"}, []string{}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_REGISTRY_USERNAME should be set if DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD is set", true, "All of DUFFLE_ACI_DRIVER_REGISTRY_USERNAME,DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD must be set when one is set. DUFFLE_ACI_DRIVER_REGISTRY_USERNAME is not set", map[string]string{"DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD": "test"}, []string{"DUFFLE_ACI_DRIVER_REGISTRY_USERNAME"}, map[string]interface{}{}},
-		{"No error when setting both DUFFLE_ACI_DRIVER_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD", false, "", map[string]string{"DUFFLE_ACI_DRIVER_REGISTRY_USERNAME": "test"}, []string{}, map[string]interface{}{"imageRegistryUser": "test", "imageRegistryPassword": "test"}},
-		{"DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH should not be set if DUFFLE_ACI_DRIVER_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD are set", true, "DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH should not be set if DUFFLE_ACI_DRIVER_REGISTRY_USERNAME and DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD are set", map[string]string{"DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH": "true"}, []string{}, map[string]interface{}{}},
-		{"Both DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set when setting DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", true, "Both DUFFLE_ACI_DRIVER_CLIENT_ID and DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set when setting DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", map[string]string{"DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH": "true"}, []string{"DUFFLE_ACI_DRIVER_REGISTRY_USERNAME", "DUFFLE_ACI_DRIVER_REGISTRY_PASSWORD"}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_CLIENT_SECRET should be set when setting DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", true, "All of DUFFLE_ACI_DRIVER_CLIENT_ID,DUFFLE_ACI_DRIVER_CLIENT_SECRET must be set when one is set. DUFFLE_ACI_DRIVER_CLIENT_SECRET is not set", map[string]string{"DUFFLE_ACI_DRIVER_CLIENT_ID": "test"}, []string{}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_CLIENT_ID should be set when setting DUFFLE_ACI_DRIVER_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", true, "All of DUFFLE_ACI_DRIVER_CLIENT_ID,DUFFLE_ACI_DRIVER_CLIENT_SECRET must be set when one is set. DUFFLE_ACI_DRIVER_CLIENT_ID is not set", map[string]string{"DUFFLE_ACI_DRIVER_CLIENT_SECRET": "test"}, []string{"DUFFLE_ACI_DRIVER_CLIENT_ID"}, map[string]interface{}{}},
-		{"No error when setting DUFFLE_ACI_DRIVER_CLIENT_CREDS_FOR_REGISTRY_AUTH", false, "", map[string]string{"DUFFLE_ACI_DRIVER_CLIENT_ID": "test", "DUFFLE_ACI_DRIVER_TENANT_ID": "test"}, []string{}, map[string]interface{}{"useSPForACR": true}},
-		{"No error when setting DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS", false, "", map[string]string{"DUFFLE_ACI_DRIVER_PROPAGATE_CREDENTIALS": "true"}, []string{}, map[string]interface{}{"propagateCredentials": true}},
-		{"DUFFLE_ACI_DRIVER_STATE_ options should all be set 1", true, "All of DUFFLE_ACI_DRIVER_STATE_PATH,DUFFLE_ACI_DRIVER_STATE_FILESHARE,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY,DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT must be set when one is set. DUFFLE_ACI_DRIVER_STATE_FILESHARE is not set", map[string]string{"DUFFLE_ACI_DRIVER_STATE_PATH": "test", "DUFFLE_ACI_DRIVER_MOUNT_POINT": "test", "DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME": "test", "DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY": "test"}, []string{}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_STATE_ options should all be set 2", true, "All of DUFFLE_ACI_DRIVER_STATE_PATH,DUFFLE_ACI_DRIVER_STATE_FILESHARE,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY,DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT must be set when one is set. DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME is not set", map[string]string{"DUFFLE_ACI_DRIVER_STATE_FILESHARE": "test"}, []string{"DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME"}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_STATE_ options should all be set 3", true, "All of DUFFLE_ACI_DRIVER_STATE_PATH,DUFFLE_ACI_DRIVER_STATE_FILESHARE,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY,DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT must be set when one is set. DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY is not set", map[string]string{"DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME": "test"}, []string{"DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY"}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_STATE_ options should all be set 4", true, "All of DUFFLE_ACI_DRIVER_STATE_PATH,DUFFLE_ACI_DRIVER_STATE_FILESHARE,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY,DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT must be set when one is set. DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT is not set", map[string]string{"DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY": "test"}, []string{"DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT"}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_STATE_ options should all be set 5", true, "All of DUFFLE_ACI_DRIVER_STATE_PATH,DUFFLE_ACI_DRIVER_STATE_FILESHARE,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME,DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY,DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT must be set when one is set. DUFFLE_ACI_DRIVER_STATE_PATH is not set", map[string]string{"DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT": "test"}, []string{"DUFFLE_ACI_DRIVER_STATE_PATH"}, map[string]interface{}{}},
-		{"DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT_should_be_an_absolute_path", true, "value (test) of DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT is not an absolute path", map[string]string{"DUFFLE_ACI_DRIVER_STATE_PATH": "test", "DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT": "test"}, []string{}, map[string]interface{}{}},
-		{"No error when setting DUFFLE_ACI_DRIVER__MOUNT_POINT", false, "", map[string]string{"DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT": "/mnt/path"}, []string{"DUFFLE_ACI_DRIVER_STATE_MOUNT_POINT"}, map[string]interface{}{"mountStateVolume": true}},
+		{"Either CNAB_AZURE_LOCATION or CNAB_AZURE_RESOURCE_GROUP must be set", true, "ACI Driver requires CNAB_AZURE_LOCATION environment variable or an existing Resource Group in CNAB_AZURE_RESOURCE_GROUP", map[string]string{}, []string{}, map[string]interface{}{}},
+		{"No Error if CNAB_AZURE_LOCATION is set", false, "", map[string]string{"CNAB_AZURE_LOCATION": "test"}, []string{}, map[string]interface{}{"userAgent": "DuffleACIDriver-test-version", "aciLocation": "test"}},
+		{"No Error if CNAB_AZURE_RESOURCE_GROUP is set", false, "", map[string]string{"CNAB_AZURE_RESOURCE_GROUP": "test"}, []string{"CNAB_AZURE_LOCATION"}, map[string]interface{}{"aciRG": "test"}},
+		{"No Error if CNAB_AZURE_DELETE_RESOURCES is set", false, "", map[string]string{"CNAB_AZURE_DELETE_RESOURCES": "true"}, []string{}, map[string]interface{}{"deleteACIResources": true}},
+		{"Both CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET should be set 1", true, "All of CNAB_AZURE_CLIENT_ID,CNAB_AZURE_CLIENT_SECRET must be set when one is set. CNAB_AZURE_CLIENT_SECRET is not set", map[string]string{"CNAB_AZURE_CLIENT_ID": "test"}, []string{}, map[string]interface{}{}},
+		{"Both CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET should be set 1", true, "All of CNAB_AZURE_CLIENT_ID,CNAB_AZURE_CLIENT_SECRET must be set when one is set. CNAB_AZURE_CLIENT_ID is not set", map[string]string{"CNAB_AZURE_CLIENT_SECRET": "test"}, []string{"CNAB_AZURE_CLIENT_ID"}, map[string]interface{}{}},
+		{"If CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET are set then CNAB_AZURE_TENANT_ID should be set", true, "CNAB_AZURE_TENANT_ID should be set when CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET or CNAB_AZURE_APP_ID are set", map[string]string{"CNAB_AZURE_CLIENT_ID": "test"}, []string{}, map[string]interface{}{}},
+		{"Either CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET or CNAB_AZURE_APP_ID should be set not both", true, "either CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET or CNAB_AZURE_APP_ID should be set not both", map[string]string{"CNAB_AZURE_APP_ID": "test"}, []string{}, map[string]interface{}{}},
+		{"No Error if CNAB_AZURE_CLIENT_ID, CNAB_AZURE_CLIENT_SECRET and CNAB_AZURE_TENANT_ID are set", false, "", map[string]string{"CNAB_AZURE_TENANT_ID": "test"}, []string{"CNAB_AZURE_APP_ID"}, map[string]interface{}{}},
+		{"If CNAB_AZURE_TENANT_ID is set CNAB_AZURE_APP_ID or CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET should be set", true, "CNAB_AZURE_TENANT_ID should not be set when CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET or CNAB_AZURE_APP_ID are not set", map[string]string{}, []string{"CNAB_AZURE_CLIENT_ID", "CNAB_AZURE_CLIENT_SECRET"}, map[string]interface{}{}},
+		{"No Error if CNAB_AZURE_TENANT_ID and CNAB_AZURE_APP_ID are set", false, "", map[string]string{"CNAB_AZURE_APP_ID": "test"}, []string{}, map[string]interface{}{}},
+		{"If CNAB_AZURE_APP_ID is set CNAB_AZURE_TENANT_ID should be set", true, "CNAB_AZURE_TENANT_ID should be set when CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET or CNAB_AZURE_APP_ID are set", map[string]string{}, []string{"CNAB_AZURE_TENANT_ID"}, map[string]interface{}{}},
+		{"No error when setting CNAB_AZURE_MSI_TYPE to system", false, "", map[string]string{"CNAB_AZURE_MSI_TYPE": "system"}, []string{"CNAB_AZURE_APP_ID"}, map[string]interface{}{"msiType": "system"}},
+		{"CNAB_AZURE_USER_MSI_RESOURCE_ID must be set if user MSI is being used", true, "ACI Driver requires CNAB_AZURE_USER_MSI_RESOURCE_ID environment variable when CNAB_AZURE_MSI_TYPE is set to user", map[string]string{"CNAB_AZURE_MSI_TYPE": "user"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_USER_MSI_RESOURCE_ID must be valid format", true, "CNAB_AZURE_USER_MSI_RESOURCE_ID environment variable parsing error: parsing failed for invalid. Invalid resource Id format", map[string]string{"CNAB_AZURE_USER_MSI_RESOURCE_ID": "invalid"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_USER_MSI_RESOURCE_ID should be correct RP and Type", true, "CNAB_AZURE_USER_MSI_RESOURCE_ID environment variable RP type should be Microsoft.ManagedIdentity/userAssignedIdentities got: Microsoft.Storage/storageAccounts", map[string]string{"CNAB_AZURE_USER_MSI_RESOURCE_ID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.Storage/storageAccounts/name"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_USER_MSI_RESOURCE_ID should be correct Type", true, "CNAB_AZURE_USER_MSI_RESOURCE_ID environment variable RP type should be Microsoft.ManagedIdentity/userAssignedIdentities got: Microsoft.ManagedIdentity/storageAccounts", map[string]string{"CNAB_AZURE_USER_MSI_RESOURCE_ID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/storageAccounts/name"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_USER_MSI_RESOURCE_ID should be correct RP", true, "CNAB_AZURE_USER_MSI_RESOURCE_ID environment variable RP type should be Microsoft.ManagedIdentity/userAssignedIdentities got: Microsoft.Storage/userAssignedIdentities", map[string]string{"CNAB_AZURE_USER_MSI_RESOURCE_ID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.Storage/userAssignedIdentities/name"}, []string{}, map[string]interface{}{}},
+		{"No error when setting CNAB_AZURE_RESOURCE_GROUP", false, "", map[string]string{"CNAB_AZURE_USER_MSI_RESOURCE_ID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/userAssignedIdentities/name"}, []string{}, map[string]interface{}{"userMSIResourceID": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/name/providers/Microsoft.ManagedIdentity/userAssignedIdentities/name", "msiType": "user"}},
+		{"No error when setting CNAB_AZURE_SUBSCRIPTION_ID", false, "", map[string]string{"CNAB_AZURE_SUBSCRIPTION_ID": "11111111-1111-1111-1111-111111111111"}, []string{}, map[string]interface{}{"subscriptionID": "11111111-1111-1111-1111-111111111111"}},
+		{"CNAB_AZURE_REGISTRY_PASSWORD should be set if CNAB_AZURE_REGISTRY_USERNAME is set", true, "All of CNAB_AZURE_REGISTRY_USERNAME,CNAB_AZURE_REGISTRY_PASSWORD must be set when one is set. CNAB_AZURE_REGISTRY_PASSWORD is not set", map[string]string{"CNAB_AZURE_REGISTRY_USERNAME": "test"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_REGISTRY_USERNAME should be set if CNAB_AZURE_REGISTRY_PASSWORD is set", true, "All of CNAB_AZURE_REGISTRY_USERNAME,CNAB_AZURE_REGISTRY_PASSWORD must be set when one is set. CNAB_AZURE_REGISTRY_USERNAME is not set", map[string]string{"CNAB_AZURE_REGISTRY_PASSWORD": "test"}, []string{"CNAB_AZURE_REGISTRY_USERNAME"}, map[string]interface{}{}},
+		{"No error when setting both CNAB_AZURE_REGISTRY_USERNAME and CNAB_AZURE_REGISTRY_PASSWORD", false, "", map[string]string{"CNAB_AZURE_REGISTRY_USERNAME": "test"}, []string{}, map[string]interface{}{"imageRegistryUser": "test", "imageRegistryPassword": "test"}},
+		{"CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH should not be set if CNAB_AZURE_REGISTRY_USERNAME and CNAB_AZURE_REGISTRY_PASSWORD are set", true, "CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH should not be set if CNAB_AZURE_REGISTRY_USERNAME and CNAB_AZURE_REGISTRY_PASSWORD are set", map[string]string{"CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH": "true"}, []string{}, map[string]interface{}{}},
+		{"Both CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET should be set when setting CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", true, "Both CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET should be set when setting CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", map[string]string{"CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH": "true"}, []string{"CNAB_AZURE_REGISTRY_USERNAME", "CNAB_AZURE_REGISTRY_PASSWORD"}, map[string]interface{}{}},
+		{"CNAB_AZURE_CLIENT_SECRET should be set when setting CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", true, "All of CNAB_AZURE_CLIENT_ID,CNAB_AZURE_CLIENT_SECRET must be set when one is set. CNAB_AZURE_CLIENT_SECRET is not set", map[string]string{"CNAB_AZURE_CLIENT_ID": "test"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_CLIENT_ID should be set when setting CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", true, "All of CNAB_AZURE_CLIENT_ID,CNAB_AZURE_CLIENT_SECRET must be set when one is set. CNAB_AZURE_CLIENT_ID is not set", map[string]string{"CNAB_AZURE_CLIENT_SECRET": "test"}, []string{"CNAB_AZURE_CLIENT_ID"}, map[string]interface{}{}},
+		{"No error when setting CNAB_AZURE_CLIENT_CREDS_FOR_REGISTRY_AUTH", false, "", map[string]string{"CNAB_AZURE_CLIENT_ID": "test", "CNAB_AZURE_TENANT_ID": "test"}, []string{}, map[string]interface{}{"useSPForACR": true}},
+		{"No error when setting CNAB_AZURE_PROPAGATE_CREDENTIALS", false, "", map[string]string{"CNAB_AZURE_PROPAGATE_CREDENTIALS": "true"}, []string{}, map[string]interface{}{"propagateCredentials": true}},
+		{"CNAB_AZURE_STATE_ options should all be set 1", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_FILESHARE is not set", map[string]string{"CNAB_AZURE_STATE_PATH": "test", "CNAB_AZURE_MOUNT_POINT": "test", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME": "test", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY": "test"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_ options should all be set 2", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME is not set", map[string]string{"CNAB_AZURE_STATE_FILESHARE": "test"}, []string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME"}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_ options should all be set 3", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY is not set", map[string]string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME": "test"}, []string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_ options should all be set 4", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_MOUNT_POINT is not set", map[string]string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY": "test"}, []string{"CNAB_AZURE_STATE_MOUNT_POINT"}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_ options should all be set 5", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_PATH is not set", map[string]string{"CNAB_AZURE_STATE_MOUNT_POINT": "test"}, []string{"CNAB_AZURE_STATE_PATH"}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_MOUNT_POINT_should_be_an_absolute_path", true, "value (test) of CNAB_AZURE_STATE_MOUNT_POINT is not an absolute path", map[string]string{"CNAB_AZURE_STATE_PATH": "test", "CNAB_AZURE_STATE_MOUNT_POINT": "test"}, []string{}, map[string]interface{}{}},
+		{"No error when setting CNAB_AZURE__MOUNT_POINT", false, "", map[string]string{"CNAB_AZURE_STATE_MOUNT_POINT": "/mnt/path"}, []string{"CNAB_AZURE_STATE_MOUNT_POINT"}, map[string]interface{}{"mountStateVolume": true}},
 	}
-	// Unset any DUFFLE_ACI_DRIVER environment variables as these will make the tests fail
+	// Unset any CNAB_AZURE environment variables as these will make the tests fail
 	test.UnSetDriverEnvironmentVars(t)
 	defer test.UnSetDriverEnvironmentVars(t)
 
@@ -101,7 +101,7 @@ func TestNewACIDriver(t *testing.T) {
 	assert.Equal(t, false, d.Handles(cnabdriver.ImageTypeQCOW))
 }
 func TestCanWriteOutputs(t *testing.T) {
-	os.Setenv("DUFFLE_ACI_DRIVER_LOCATION", "test")
+	os.Setenv("CNAB_AZURE_LOCATION", "test")
 	defer test.UnSetDriverEnvironmentVars(t)
 	op := cnabdriver.Operation{
 		Action:       "install",
@@ -135,7 +135,7 @@ func TestCanWriteOutputs(t *testing.T) {
 	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation. Got: %v", err)
 	assert.NotNil(t, d)
 	_, err = d.Run(&op)
-	assert.Error(t, err, "Bundle has outputs no volume mounted for state, set DUFFLE_ACI_DRIVER_STATE_* variables so that state can be retrieved")
+	assert.Error(t, err, "Bundle has outputs no volume mounted for state, set CNAB_AZURE_STATE_* variables so that state can be retrieved")
 
 }
 func TestRunAzureTest(t *testing.T) {
@@ -147,11 +147,11 @@ func TestRunAzureTest(t *testing.T) {
 	test.UnSetDriverEnvironmentVars(t)
 	// Set environments vars using TEST_ to configure the driver before running the test, if these are not set the the driver tries to login using the cloudshell or az cli
 	loginEnvVars := []string{
-		"DUFFLE_ACI_DRIVER_SUBSCRIPTION_ID",
-		"DUFFLE_ACI_DRIVER_CLIENT_SECRET",
-		"DUFFLE_ACI_DRIVER_LOCATION",
-		"DUFFLE_ACI_DRIVER_CLIENT_ID",
-		"DUFFLE_ACI_DRIVER_TENANT_ID"}
+		"CNAB_AZURE_SUBSCRIPTION_ID",
+		"CNAB_AZURE_CLIENT_SECRET",
+		"CNAB_AZURE_LOCATION",
+		"CNAB_AZURE_CLIENT_ID",
+		"CNAB_AZURE_TENANT_ID"}
 
 	// Check for environment variables to use for login these are expected to be the name of the relevant driver variable prefixed with TEST_
 	for _, e := range loginEnvVars {
@@ -165,9 +165,9 @@ func TestRunAzureTest(t *testing.T) {
 	test.SetLoggingLevel(verboseDriver)
 
 	// Set a default location if not set
-	envvar := os.Getenv("DUFFLE_ACI_DRIVER_LOCATION")
+	envvar := os.Getenv("CNAB_AZURE_LOCATION")
 	if len(envvar) == 0 {
-		os.Setenv("DUFFLE_ACI_DRIVER_LOCATION", "westeurope")
+		os.Setenv("CNAB_AZURE_LOCATION", "westeurope")
 	}
 
 	op := cnabdriver.Operation{
@@ -235,9 +235,9 @@ func TestRunAzureTest(t *testing.T) {
 	// Test Mounting Storage
 
 	fileShareEnvVars := []string{
-		"DUFFLE_ACI_DRIVER_STATE_FILESHARE",
-		"DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME",
-		"DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY",
+		"CNAB_AZURE_STATE_FILESHARE",
+		"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME",
+		"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY",
 	}
 
 	for _, e := range fileShareEnvVars {
@@ -275,10 +275,10 @@ func TestRunAzureTest(t *testing.T) {
 	assert.NotNil(t, d)
 	_, err = d.Run(&op)
 	assert.NoErrorf(t, err, "Expected no error when running Test Operation with mounted state storage. Got: %v", err)
-	afs, err := az.NewFileShare(os.Getenv("TEST_DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_NAME"), os.Getenv("TEST_DUFFLE_ACI_DRIVER_STATE_STORAGE_ACCOUNT_KEY"), os.Getenv("TEST_DUFFLE_ACI_DRIVER_STATE_FILESHARE"))
+	afs, err := az.NewFileShare(os.Getenv("TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME"), os.Getenv("TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"), os.Getenv("TEST_CNAB_AZURE_STATE_FILESHARE"))
 	assert.NoErrorf(t, err, "Expected no error when creating FileShare object. Got: %v", err)
 	// Check State was written
-	content, err := afs.ReadFileFromShare(os.Getenv("DUFFLE_ACI_DRIVER_STATE_PATH") + "/teststate")
+	content, err := afs.ReadFileFromShare(os.Getenv("CNAB_AZURE_STATE_PATH") + "/teststate")
 	assert.NoErrorf(t, err, "Expected no error when reading state. Got: %v", err)
 	assert.EqualValuesf(t, "TEST", content, "Expected state to be TEST but got %s", content)
 
