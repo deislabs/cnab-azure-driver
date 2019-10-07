@@ -83,6 +83,14 @@ func TestOutputHandling(t *testing.T) {
 	_, err = writeToStdInAndTest(bytes, RunOperation)
 	errmsg := fmt.Sprintf("CNAB_OUTPUT_DIR: %s does not exist", tempDirName)
 	assert.EqualError(t, err, errmsg)
+	// Should not matter if CNAB_OUTPUT_DIR is set or not if there are no outputs
+	bytes, err = ioutil.ReadFile("testdata/no-output-test.json")
+	assert.NoError(t, err, "Error reading from testdata/no-output-test.json")
+	_, err = writeToStdInAndTest(bytes, RunOperation)
+	assert.EqualError(t, err, "Error creating ACI Driver: ACI Driver requires CNAB_AZURE_LOCATION environment variable or an existing Resource Group in CNAB_AZURE_RESOURCE_GROUP")
+	os.Unsetenv("CNAB_OUTPUT_DIR")
+	_, err = writeToStdInAndTest(bytes, RunOperation)
+	assert.EqualError(t, err, "Error creating ACI Driver: ACI Driver requires CNAB_AZURE_LOCATION environment variable or an existing Resource Group in CNAB_AZURE_RESOURCE_GROUP")
 }
 
 func getOutput(t *testing.T, f func()) string {

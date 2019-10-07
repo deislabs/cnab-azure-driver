@@ -65,18 +65,20 @@ func RunOperation() error {
 	}
 
 	outputDirName := os.Getenv("CNAB_OUTPUT_DIR")
-	if len(op.Outputs) > 0 && len(outputDirName) == 0 {
-		return fmt.Errorf("Bundle has %d outputs but CNAB_OUTPUT_DIR is not set", len(op.Outputs))
-	}
-	// The output directory should exist and be a directory
+	if len(op.Outputs) > 0 {
+		if len(outputDirName) == 0 {
+			return fmt.Errorf("Bundle has %d outputs but CNAB_OUTPUT_DIR is not set", len(op.Outputs))
+		}
 
-	info, err := os.Stat(outputDirName)
-	if err != nil {
-		return fmt.Errorf("CNAB_OUTPUT_DIR: %s does not exist", outputDirName)
-	}
+		// The output directory should exist and be a directory
+		info, err := os.Stat(outputDirName)
+		if err != nil {
+			return fmt.Errorf("CNAB_OUTPUT_DIR: %s does not exist", outputDirName)
+		}
 
-	if !info.IsDir() {
-		return fmt.Errorf("CNAB_OUTPUT_DIR: %s is not a directory", outputDirName)
+		if !info.IsDir() {
+			return fmt.Errorf("CNAB_OUTPUT_DIR: %s is not a directory", outputDirName)
+		}
 	}
 
 	acidriver, err := driver.NewACIDriver(Version)
