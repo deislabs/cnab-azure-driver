@@ -370,9 +370,9 @@ func (d *aciDriver) getOutputs(op *driver.Operation, operationResult *driver.Ope
 			fileName := fmt.Sprintf("%s/%s/%s", d.statePath, cnabOutputDirName, outputName)
 			log.Debugf("Reading output for file: %s", fileName)
 			content, err := afs.ReadFileFromShare(fileName)
-			operationResult.Outputs[outputName] = content
+			operationResult.Outputs[fullOutputName] = content
 			if err != nil {
-				return *operationResult, fmt.Errorf("Error reading output %s from AzureFileShare: %v", outputName, err)
+				return *operationResult, fmt.Errorf("Error reading output %s from AzureFileShare: %v", fullOutputName, err)
 			}
 		}
 	}
