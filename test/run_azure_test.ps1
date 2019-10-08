@@ -4,7 +4,6 @@ $ENV:TEST_CNAB_AZURE_CLIENT_ID=""
 $ENV:TEST_CNAB_AZURE_CLIENT_SECRET=""
 $ENV:TEST_CNAB_AZURE_LOCATION=""
 $ENV:TEST_CNAB_AZURE_STATE_FILESHARE=""
-
 $ENV:TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME=""
 $ENV:TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY=""
-go test -v -timeout 1h ./pkg/azure, ./pkg/driver -args -runazuretest -verbosedriveroutput
+go test -v -timeout 1h ./pkg/... -args -runazuretest -verbosedriveroutput

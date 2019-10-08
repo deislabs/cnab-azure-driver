@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/deislabs/cnab-go/bundle"
+	"github.com/deislabs/cnab-go/bundle/definition"
 	cnabdriver "github.com/deislabs/cnab-go/driver"
 	"github.com/stretchr/testify/assert"
 
@@ -117,6 +118,22 @@ func TestCanWriteOutputs(t *testing.T) {
 				Digest:    "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb",
 			},
 		},
+		Bundle: &bundle.Bundle{
+			Definitions: definition.Definitions{
+				"output1": &definition.Schema{},
+				"output2": &definition.Schema{},
+			},
+			Outputs: map[string]bundle.Output{
+				"output1": {
+					Definition: "output1",
+					Path:       "/cnab/app/outputs/output1",
+				},
+				"output2": {
+					Definition: "output2",
+					Path:       "/cnab/app/outputs/output2",
+				},
+			},
+		},
 		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
 		Environment: map[string]string{
 			"ENV1": "value1",
@@ -125,10 +142,7 @@ func TestCanWriteOutputs(t *testing.T) {
 		Files: map[string]string{
 			"/cnab/app/image-map.json": "{}",
 		},
-		Outputs: []string{
-			"output1",
-			"output2",
-		},
+		Outputs: []string{"/cnab/app/outputs/output1", "/cnab/app/outputs/output2"},
 	}
 
 	d, err := NewACIDriver("test-version")
@@ -294,6 +308,22 @@ func TestRunAzureTest(t *testing.T) {
 				Digest:    "sha256:6abd5787989b6303b91fee441e351829bd3921601ffcb390681884ee49a3a38f",
 			},
 		},
+		Bundle: &bundle.Bundle{
+			Definitions: definition.Definitions{
+				"output1": &definition.Schema{},
+				"output2": &definition.Schema{},
+			},
+			Outputs: map[string]bundle.Output{
+				"output1": {
+					Definition: "output1",
+					Path:       "/cnab/app/outputs/output1",
+				},
+				"output2": {
+					Definition: "output2",
+					Path:       "/cnab/app/outputs/output2",
+				},
+			},
+		},
 		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
 		Environment: map[string]string{
 			"CNAB_INSTALLATION_NAME": "test-install-with-outputs",
@@ -314,8 +344,10 @@ func TestRunAzureTest(t *testing.T) {
 	outputs := getOutputs(results)
 	assert.EqualValuesf(t, 2, len(outputs), "Expected to get 2 outputs when running Test Operation with outputs but got %d", len(outputs))
 	if len(outputs) == 2 {
-		assert.EqualValuesf(t, "OUTPUT_1", outputs[0], "Expected the first output to be OUTPUT_1 when running Test Operation with outputs but got %s", outputs[0])
-		assert.EqualValuesf(t, "OUTPUT_2", outputs[1], "Expected the first output to be OUTPUT_2 when running Test Operation with outputs but got %s", outputs[1])
+		assert.Equal(t, map[string]string{
+			"/cnab/app/outputs/output1": "OUTPUT_1",
+			"/cnab/app/outputs/output2": "OUTPUT_2",
+		}, results.Outputs)
 	}
 }
 

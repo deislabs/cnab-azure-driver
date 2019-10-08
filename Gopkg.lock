@@ -18,7 +18,7 @@
   version = "v33.4.0"
 
 [[projects]]
-  digest = "1:8343100c9215ddd05bd708323e4821e3ff3206fe44f3ebd2777fda1eb0246ed7"
+  digest = "1:9e57e16a4e809da5d6280ab4e7cb9c3d8a9d5b1065226be2d71c11d070a60e7b"
   name = "github.com/Azure/go-autorest"
   packages = [
     "autorest",
@@ -33,8 +33,8 @@
     "tracing",
   ]
   pruneopts = "UT"
-  revision = "69b4126ece6b5257e2f9b0017007d2334153655f"
-  version = "v13.0.1"
+  revision = "d9a171ca366fd4acfaa99107cdc4f91877f3572e"
+  version = "v13.0.2"
 
 [[projects]]
   digest = "1:d37f34e1e231ee4b8657d1b6153e2696b1d7341850f648f5d78151d3bc1f677b"
@@ -54,7 +54,7 @@
 
 [[projects]]
   branch = "command_outputs"
-  digest = "1:d81582685fa8910b0dcd46290bcb37917b72a04454f347998fc4faab4b2d7efd"
+  digest = "1:bef51f4a6b18cc44fb2ccb2b409a3071f267983555d287845c2255160e1509c2"
   name = "github.com/deislabs/cnab-go"
   packages = [
     "bundle",
@@ -62,7 +62,7 @@
     "driver",
   ]
   pruneopts = "UT"
-  revision = "90fa7d9156b34ebe53edf8f3635a2460a83de6a0"
+  revision = "daba52af57f0d74af13f3b846b634736df688490"
   source = "github.com/simongdavies/cnab-go"
 
 [[projects]]
@@ -221,23 +221,23 @@
     "pkcs12/internal/rc2",
   ]
   pruneopts = "UT"
-  revision = "a832865fa7ada6126f4c6124ac49f71be71bff2a"
+  revision = "34f69633bfdcf9db92f698f8487115767eebef81"
 
 [[projects]]
   branch = "master"
-  digest = "1:1b90e63244513e8514749f45da58e89350d35cb3e12416ce6ed95f41c2a1f177"
+  digest = "1:3e7ac264ca261c2d429880bfd6c3121c36a0f12b6a050d8a747aa29f6f6b2be0"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "c990c680b611ac1aeb7d8f2af94a825f98d69720"
+  revision = "543471e840be449c53d44b32c7adf1261ad67e37"
 
 [[projects]]
-  digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
+  digest = "1:59f10c1537d2199d9115d946927fe31165959a95190849c82ff11e05803528b0"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = "UT"
-  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
-  version = "v2.2.2"
+  revision = "f221b8435cfb71e54062f6c6e99e9ade30b124d5"
+  version = "v2.2.4"
 
 [solve-meta]
   analyzer-name = "dep"
