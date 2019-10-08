@@ -1085,5 +1085,6 @@ func imageWithDigest(img bundle.InvocationImage) string {
 	if img.Digest == "" {
 		return img.Image
 	}
-	return img.Image + "@" + img.Digest
+	//Workaround for issue in ACI Image Reference Parsing where it doesn't allow both a tag and a digest
+	return strings.Split(img.Image, ":")[0] + "@" + img.Digest
 }

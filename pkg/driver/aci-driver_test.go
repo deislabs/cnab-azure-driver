@@ -215,6 +215,39 @@ func TestRunAzureTest(t *testing.T) {
 	_, err = d.Run(&op)
 	assert.NoErrorf(t, err, "Expected no error when running Test Operation. Got: %v", err)
 
+	// Test image reference with tag and digest
+
+	op = cnabdriver.Operation{
+		Action:       "install",
+		Installation: "test-install",
+		Parameters:   map[string]interface{}{},
+		Image: bundle.InvocationImage{
+			BaseImage: bundle.BaseImage{
+				Image:     "simongdavies/helloworld-aci-cnab:latest",
+				ImageType: "docker",
+				Digest:    "sha256:a9137fc4cb1d3c79533a45bbaa437d6f45e501a61b9c882a1ca4960fafe0ae3c",
+			},
+		},
+		Environment: map[string]string{
+			"CNAB_INSTALLATION_NAME": "test-aci",
+			"CNAB_ACTION":            "install",
+			"CNAB_BUNDLE_NAME":       "helloworld-aci",
+			"CNAB_BUNDLE_VERSION":    "0.1.0",
+			"ENV1":                   "value1",
+			"ENV2":                   "value2",
+		},
+		Revision: "01DDY0MT808KX0GGZ6SMXN4TW",
+		Files: map[string]string{
+			"/cnab/app/image-map.json": "{}",
+		},
+	}
+
+	d, err = NewACIDriver("test-version")
+	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation. Got: %v", err)
+	assert.NotNil(t, d)
+	_, err = d.Run(&op)
+	assert.NoErrorf(t, err, "Expected no error when running Test Operation. Got: %v", err)
+
 	// Test op with files
 
 	op = cnabdriver.Operation{
