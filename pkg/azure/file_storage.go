@@ -19,15 +19,13 @@ type FileShare struct {
 }
 
 func (afs *FileShare) ReadFileFromShare(fileName string) (string, error) {
-	log.Debugf("Reading %s from share %s", fileName, afs.share.Name)
-	fileName = getCleanFileName(fileName)
-	file := afs.share.GetRootDirectoryReference().GetFileReference(fileName)
-	if exists, err := file.Exists(); err != nil || !exists {
+	if exists, err := afs.CheckIfFileExists(fileName); err != nil || !exists {
 		if err != nil {
 			return "", fmt.Errorf("Error checking if file %s exists in FileShare %s: %v", fileName, afs.share.Name, err)
 		}
 		return "", fmt.Errorf("File %s not found in FileShare %s", fileName, afs.share.Name)
 	}
+	file := afs.share.GetRootDirectoryReference().GetFileReference(path.Clean(fileName))
 	options := storage.FileRequestOptions{}
 	stream, err := file.DownloadToStream(&options)
 	if err != nil {
@@ -44,22 +42,16 @@ func (afs *FileShare) ReadFileFromShare(fileName string) (string, error) {
 }
 func (afs *FileShare) WriteFileToShare(fileName string, content []byte, overwrite bool) error {
 	cleanFileName, cleanDirName := getCleanFileNameParts(fileName)
-	var cleanPath string
-	if len(cleanDirName) > 0 {
-		log.Debugf("Clean Dir Name:%s", cleanDirName)
-		// cannot use filepath.Split() or os.PathSeperator as this will fail if this code is run on Windows
-		for _, name := range strings.Split(cleanDirName, "/") {
-			cleanPath = path.Join(cleanPath, name)
-			log.Debugf("Creating Directory:%s", cleanPath)
-			dir := afs.share.GetRootDirectoryReference().GetDirectoryReference(cleanPath)
-			if _, err := dir.CreateIfNotExists(nil); err != nil {
-				return fmt.Errorf("Error creating directory %s in FileShare %s: %v", cleanPath, afs.share.Name, err)
-			}
-		}
+	log.Debugf("FileName:%s CleanFileName:%s CleanDirName:%s", fileName, cleanFileName, cleanDirName)
+	if len(cleanFileName) == 0 {
+		return fmt.Errorf("No Filename in path: %s", fileName)
+	}
+	if _, err := afs.checkIfDirExistsAndCreate(cleanDirName, true); err != nil {
+		return fmt.Errorf("Error checking if file %s exists in FileShare %s: %v", fileName, afs.share.Name, err)
 	}
 
-	cleanFileName = path.Join(cleanPath, cleanFileName)
-	log.Debugf("Clean File Name:%s", cleanFileName)
+	cleanFileName = path.Join(cleanDirName, cleanFileName)
+	log.Debugf("Full Clean File Name: %s", cleanFileName)
 	file := afs.share.GetRootDirectoryReference().GetFileReference(cleanFileName)
 	if exists, err := file.Exists(); err != nil || (exists && !overwrite) {
 		if err != nil {
@@ -111,11 +103,69 @@ func NewFileShare(accountName string, accountKey string, shareName string) (*Fil
 	return &afs, nil
 }
 func getCleanFileNameParts(fileName string) (cleanFileName string, cleanDirName string) {
-	dirPath, fileNameOnly := path.Split(strings.TrimSuffix(fileName, "/"))
-	cleanFileName = path.Clean(fileNameOnly)
-	cleanDirName = path.Clean(dirPath)
+	dirPath, cleanFileName := path.Split(fileName)
+	// Root Directory returns "/"
+	cleanDirName = strings.Trim(path.Clean(dirPath), "/")
 	return
 }
-func getCleanFileName(fileName string) (cleanFileName string) {
-	return path.Clean(strings.TrimSuffix(fileName, "/"))
+func (afs *FileShare) checkIfDirExists(dirPath string) (bool, error) {
+	return afs.checkIfDirExistsAndCreate(dirPath, false)
+}
+func (afs *FileShare) checkIfDirExistsAndCreate(dirPath string, create bool) (bool, error) {
+	log.Debugf("Checking if dir %s exists in share %s", dirPath, afs.share.Name)
+	dirPath = strings.Trim(path.Clean(dirPath), "/")
+	log.Debugf("Clean Dir Path: %s", dirPath)
+	cleanPath := ""
+	if len(dirPath) > 0 {
+		// cannot use filepath.Split() or os.PathSeperator as this will fail if this code is run on Windows
+		for _, name := range strings.Split(dirPath, "/") {
+			cleanPath = path.Join(cleanPath, name)
+			log.Debugf("Checking if dirPath exists: %s", cleanPath)
+			dir := afs.share.GetRootDirectoryReference().GetDirectoryReference(cleanPath)
+			if exists, err := dir.Exists(); err != nil || !exists {
+				if err != nil {
+					return false, fmt.Errorf("Error checking if directory %s exists in share %s: %v", cleanPath, afs.share.Name, err)
+				}
+				if create {
+					log.Debugf("Creating directory: %s", cleanPath)
+					if _, err := dir.CreateIfNotExists(nil); err != nil {
+						return false, fmt.Errorf("Error creating directory %s in FileShare %s: %v", cleanPath, afs.share.Name, err)
+					}
+					log.Debugf("dirPath created: %s", cleanPath)
+				} else {
+					log.Debugf("dirPath does not exist: %s", cleanPath)
+					return false, nil
+				}
+			}
+			log.Debugf("dirPath exists: %s", cleanPath)
+		}
+	}
+	return true, nil
+
+}
+func (afs *FileShare) CheckIfFileExists(fileName string) (bool, error) {
+	log.Debugf("Checking if %s exists in share %s", fileName, afs.share.Name)
+	cleanFileName, cleanDirName := getCleanFileNameParts(fileName)
+	if len(cleanFileName) == 0 {
+		return false, fmt.Errorf("No Filename in path: %s", fileName)
+	}
+	log.Debugf("FileName:%s CleanFileName:%s CleanDirName:%s", fileName, cleanFileName, cleanDirName)
+	dir := afs.share.GetRootDirectoryReference()
+	if len(cleanDirName) > 0 {
+		if exists, err := afs.checkIfDirExists(cleanDirName); err != nil || !exists {
+			if err != nil {
+				return false, fmt.Errorf("Error checking if file %s exists in share %s: %v", fileName, afs.share.Name, err)
+			}
+			return false, nil
+		}
+		dir = dir.GetDirectoryReference(cleanDirName)
+	}
+	file := dir.GetFileReference(cleanFileName)
+	if exists, err := file.Exists(); err != nil || !exists {
+		if err != nil {
+			return false, fmt.Errorf("Error checking if file %s exists in FileShare %s: %v", fileName, afs.share.Name, err)
+		}
+		return false, nil
+	}
+	return true, nil
 }
