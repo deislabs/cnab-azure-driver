@@ -860,7 +860,7 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 
 	if hasFiles || d.hasOutputs {
 		if hasFiles {
-			scriptBuilder.WriteString(fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;", fileMountPoint))
+			scriptBuilder.WriteString(fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;cd -;", fileMountPoint))
 		}
 
 		if len(d.statePath) > 0 {
@@ -870,6 +870,7 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 
 		if d.hasOutputs {
 			outputsCmd := fmt.Sprintf("mkdir -p ${STATE_PATH}/%[2]s;ln -s ${STATE_PATH}/%[2]s %[1]s%[2]s;", cnabOutputMountPoint, cnabOutputDirName)
+			log.Debug("Ln Command", outputsCmd)
 			scriptBuilder.WriteString(outputsCmd)
 		}
 
