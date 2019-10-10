@@ -80,60 +80,61 @@ func TestFilesShareFileHandling(t *testing.T) {
 		fileexists    bool
 		read          bool
 		write         bool
+		delete        bool
 		overwrite     bool
 		expectError   bool
 		contentLength int
 		message       string
 	}{
-		{"No Filename 1", "/testfile/", true, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
-		{"No Filename 2", "testfile/", true, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
-		{"No Filename 3", "/testdir/testfile/", true, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
-		{"No Filename 4", "testdir/testfile/", true, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
-		{"No Filename 5", "/testdir/testdir/testfile/", true, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
-		{"No Filename 6", "testdir/testdir/testfile/", true, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
-		{"Read No Filename 1", "/testfile/", false, true, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
-		{"Read No Filename 2", "testfile/", false, true, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
-		{"Read No Filename 3", "/testdir/testfile/", false, true, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
-		{"Read No Filename 4", "testdir/testfile/", false, true, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
-		{"Read No Filename 5", "/testdir/testdir/testfile/", false, true, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
-		{"Read No Filename 6", "testdir/testdir/testfile/", false, true, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
-		{"Write No Filename 1", "/testfile/", false, false, true, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
-		{"Write No Filename 2", "testfile/", false, false, true, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
-		{"Write No Filename 3", "/testdir/testfile/", false, false, true, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
-		{"Write No Filename 4", "testdir/testfile/", false, false, true, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
-		{"Write No Filename 5", "/testdir/testdir/testfile/", false, false, true, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
-		{"Write No Filename 6", "testdir/testdir/testfile/", false, false, true, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
-		{"Check File does not exist 1", "testfile1", true, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
-		{"Check File does not exist 2", "/testfile2", true, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
-		{"Check File does not exist 3", "testdir/testfile3", true, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
-		{"Check File does not exist 4", "/testdir/testfile4", true, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
-		{"Check File does not exist 5", "testdir/testdir/testfile5", true, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
-		{"Check File does not exist 6", "/testdir/testdir/testfile6", true, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
-		{"Read File does not exist 1", "testfile1", true, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
-		{"Read File does not exist 2", "/testfile2", true, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
-		{"Read File does not exist 3", "testdir/testfile3", true, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
-		{"Read File does not exist 4", "/testdir/testfile4", true, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
-		{"Read File does not exist 5", "testdir/testdir/testfile5", true, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
-		{"Read File does not exist 6", "/testdir/testdir/testfile6", true, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
-		{"Write File does not exist 1", "testfile1", true, false, false, true, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
-		{"Write File does not exist 2", "/testfile2", true, false, false, true, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
-		{"Write File does not exist 3", "testdir/testfile3", true, false, false, true, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
-		{"Write File does not exist 4", "/testdir/testfile4", true, false, false, true, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
-		{"Write File does not exist 5", "testdir/testdir/testfile5", true, false, false, true, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
-		{"Write File does not exist 6", "/testdir/testdir/testfile6", true, false, false, true, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
-		{"File already exists and not overwritten 1", "testfile1", true, true, true, true, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
-		{"File already exists and not overwritten 2", "/testfile2", true, true, true, true, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
-		{"File already exists and not overwritten 3", "testdir/testfile3", true, true, true, true, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
-		{"File already exists and not overwritten 4", "/testdir/testfile4", true, true, true, true, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
-		{"File already exists and not overwritten 5", "testdir/testdir/testfile5", true, true, true, true, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
-		{"File already exists and not overwritten 6", "/testdir/testdir/testfile6", true, true, true, true, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
-		{"File already exists 1", "testfile1", true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
-		{"File already exists 2", "/testfile2", true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
-		{"File already exists 3", "testdir/testfile3", true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
-		{"File already exists 4", "/testdir/testfile4", true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
-		{"File already exists 5", "/testdir/testdir/testfile5", true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
-		{"File already exists 6", "/testdir/testdir/testfile6", true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
-		{"File is too big", "largefile", true, false, false, true, false, true, (1 << 22) + 1, "Expected Error when trying to create file larger than 4MB"},
+		{"No Filename 1", "/testfile/", true, false, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
+		{"No Filename 2", "testfile/", true, false, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
+		{"No Filename 3", "/testdir/testfile/", true, false, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
+		{"No Filename 4", "testdir/testfile/", true, false, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
+		{"No Filename 5", "/testdir/testdir/testfile/", true, false, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
+		{"No Filename 6", "testdir/testdir/testfile/", true, false, false, false, false, false, true, 0, "Expected Error when checking for a file in Azure Share with no filename"},
+		{"Read No Filename 1", "/testfile/", false, true, false, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
+		{"Read No Filename 2", "testfile/", false, true, false, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
+		{"Read No Filename 3", "/testdir/testfile/", false, true, false, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
+		{"Read No Filename 4", "testdir/testfile/", false, true, false, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
+		{"Read No Filename 5", "/testdir/testdir/testfile/", false, true, false, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
+		{"Read No Filename 6", "testdir/testdir/testfile/", false, true, false, false, false, false, true, 0, "Expected Error when reading a file in Azure Share with no filename"},
+		{"Write No Filename 1", "/testfile/", false, false, true, false, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
+		{"Write No Filename 2", "testfile/", false, false, true, false, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
+		{"Write No Filename 3", "/testdir/testfile/", false, false, true, false, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
+		{"Write No Filename 4", "testdir/testfile/", false, false, true, false, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
+		{"Write No Filename 5", "/testdir/testdir/testfile/", false, false, true, false, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
+		{"Write No Filename 6", "testdir/testdir/testfile/", false, false, true, false, false, false, true, 1024, "Expected Error when writing a file in Azure Share with no filename"},
+		{"Check File does not exist 1", "testfile1", true, false, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
+		{"Check File does not exist 2", "/testfile2", true, false, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
+		{"Check File does not exist 3", "testdir/testfile3", true, false, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
+		{"Check File does not exist 4", "/testdir/testfile4", true, false, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
+		{"Check File does not exist 5", "testdir/testdir/testfile5", true, false, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
+		{"Check File does not exist 6", "/testdir/testdir/testfile6", true, false, false, false, false, false, false, 0, "Expected No Error when checking file exists in Azure Share"},
+		{"Read File does not exist 1", "testfile1", true, false, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
+		{"Read File does not exist 2", "/testfile2", true, false, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
+		{"Read File does not exist 3", "testdir/testfile3", true, false, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
+		{"Read File does not exist 4", "/testdir/testfile4", true, false, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
+		{"Read File does not exist 5", "testdir/testdir/testfile5", true, false, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
+		{"Read File does not exist 6", "/testdir/testdir/testfile6", true, false, false, false, false, false, false, 0, "Expected No Error when reading file that does not exist in Azure Share"},
+		{"Write File does not exist 1", "testfile1", true, false, false, true, false, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
+		{"Write File does not exist 2", "/testfile2", true, false, false, true, false, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
+		{"Write File does not exist 3", "testdir/testfile3", true, false, false, true, false, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
+		{"Write File does not exist 4", "/testdir/testfile4", true, false, false, true, false, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
+		{"Write File does not exist 5", "testdir/testdir/testfile5", true, false, false, true, false, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
+		{"Write File does not exist 6", "/testdir/testdir/testfile6", true, false, false, true, false, false, false, 1024, "Expected No Error when writing file that does not exist in Azure Share"},
+		{"File already exists and not overwritten 1", "testfile1", true, true, true, true, false, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
+		{"File already exists and not overwritten 2", "/testfile2", true, true, true, true, false, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
+		{"File already exists and not overwritten 3", "testdir/testfile3", true, true, true, true, false, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
+		{"File already exists and not overwritten 4", "/testdir/testfile4", true, true, true, true, false, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
+		{"File already exists and not overwritten 5", "testdir/testdir/testfile5", true, true, true, true, false, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
+		{"File already exists and not overwritten 6", "/testdir/testdir/testfile6", true, true, true, true, false, false, true, 1024, "Expected Error when trying to create a new file that already exists and not overwriting existing file"},
+		{"File already exists 1", "testfile1", true, true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
+		{"File already exists 2", "/testfile2", true, true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
+		{"File already exists 3", "testdir/testfile3", true, true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
+		{"File already exists 4", "/testdir/testfile4", true, true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
+		{"File already exists 5", "/testdir/testdir/testfile5", true, true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
+		{"File already exists 6", "/testdir/testdir/testfile6", true, true, true, true, true, true, false, 2048, "Expected No Error when overwriting existing file in Azure Share"},
+		{"File is too big", "largefile", true, false, false, true, false, false, true, (1 << 22) + 1, "Expected Error when trying to create file larger than 4MB"},
 	}
 	directory := uuid.New().String()
 	for _, tc := range testcases {
@@ -152,14 +153,14 @@ func TestFilesShareFileHandling(t *testing.T) {
 			}
 			if tc.read {
 				_, err = afs.ReadFileFromShare(fileName)
-				if !tc.write && tc.expectError {
+				if !tc.write && !tc.delete && tc.expectError {
 					assert.Error(t, err, tc.message)
 				}
 			}
 			if tc.write {
 				content := createContent(tc.contentLength)
 				err = afs.WriteFileToShare(fileName, content, tc.overwrite)
-				if tc.expectError {
+				if !tc.delete && tc.expectError {
 					assert.Error(t, err, tc.message)
 				} else {
 					assert.NoError(t, err, tc.message)
@@ -168,6 +169,11 @@ func TestFilesShareFileHandling(t *testing.T) {
 					contentWritten := string(content)
 					assert.Equal(t, contentWritten, contentRead, "Content from file %s in fileshare %s not equal to expected content", tc.fileName, afs.share.Name)
 				}
+			}
+			if tc.delete {
+				deleted, err := afs.DeleteFileFromShare(fileName)
+				assert.NoError(t, err, tc.message)
+				assert.True(t, deleted)
 			}
 		})
 	}

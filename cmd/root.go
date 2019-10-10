@@ -92,10 +92,6 @@ func RunOperation() error {
 		return fmt.Errorf("Running %s action on %s Error:%v", op.Action, op.Installation, err)
 	}
 
-	if len(opResult.Outputs) != len(op.Outputs) {
-		return fmt.Errorf("Expected %d Outputs but go %d", len(op.Outputs), len(opResult.Outputs))
-	}
-
 	return WriteOutputs(outputDirName, opResult)
 }
 
@@ -107,7 +103,11 @@ func WriteOutputs(outputDirName string, results cnabdriver.OperationResult) erro
 
 	for name, item := range results.Outputs {
 		fileName := path.Clean(path.Join(outputDirName, name))
-		err := ioutil.WriteFile(fileName, []byte(item), 0644)
+		log.Debug("Filename ", fileName)
+		dir, _ := path.Split(fileName)
+		log.Debug("Creating Directory ", dir)
+		os.MkdirAll(dir, 0744)
+		err := ioutil.WriteFile(fileName, []byte(item), 0744)
 		if err != nil {
 			return fmt.Errorf("Failed to write output file: %s Error: %v", fileName, err)
 		}
@@ -137,7 +137,6 @@ func GetOperation() (*cnabdriver.Operation, error) {
 		return nil, fmt.Errorf("Error reading from stdin: %v", err)
 	}
 
-	fmt.Println(string(bytes))
 	if err = json.Unmarshal(bytes, &op); err != nil {
 		return nil, fmt.Errorf("Error getting bundle.json: %v", err)
 	}

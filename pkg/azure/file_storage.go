@@ -40,6 +40,10 @@ func (afs *FileShare) ReadFileFromShare(fileName string) (string, error) {
 
 	return string(content), nil
 }
+func (afs *FileShare) DeleteFileFromShare(fileName string) (bool, error) {
+	file := afs.share.GetRootDirectoryReference().GetFileReference(path.Clean(fileName))
+	return file.DeleteIfExists(nil)
+}
 func (afs *FileShare) WriteFileToShare(fileName string, content []byte, overwrite bool) error {
 	cleanFileName, cleanDirName := getCleanFileNameParts(fileName)
 	log.Debugf("FileName:%s CleanFileName:%s CleanDirName:%s", fileName, cleanFileName, cleanDirName)

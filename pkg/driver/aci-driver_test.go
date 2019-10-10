@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/deislabs/cnab-go/bundle"
@@ -13,6 +14,7 @@ import (
 
 	az "github.com/deislabs/cnab-azure-driver/pkg/azure"
 	"github.com/deislabs/cnab-azure-driver/test"
+	"github.com/google/uuid"
 )
 
 var runAzureTest = flag.Bool("runazuretest", false, "Run tests in Azure")
@@ -58,13 +60,13 @@ func TestNewACIDriver(t *testing.T) {
 		{"CNAB_AZURE_CLIENT_ID should be set when setting CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH", true, "All of CNAB_AZURE_CLIENT_ID,CNAB_AZURE_CLIENT_SECRET must be set when one is set. CNAB_AZURE_CLIENT_ID is not set", map[string]string{"CNAB_AZURE_CLIENT_SECRET": "test"}, []string{"CNAB_AZURE_CLIENT_ID"}, map[string]interface{}{}},
 		{"No error when setting CNAB_AZURE_CLIENT_CREDS_FOR_REGISTRY_AUTH", false, "", map[string]string{"CNAB_AZURE_CLIENT_ID": "test", "CNAB_AZURE_TENANT_ID": "test"}, []string{}, map[string]interface{}{"useSPForACR": true}},
 		{"No error when setting CNAB_AZURE_PROPAGATE_CREDENTIALS", false, "", map[string]string{"CNAB_AZURE_PROPAGATE_CREDENTIALS": "true"}, []string{}, map[string]interface{}{"propagateCredentials": true}},
-		{"CNAB_AZURE_STATE_ options should all be set 1", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_FILESHARE is not set", map[string]string{"CNAB_AZURE_STATE_PATH": "test", "CNAB_AZURE_MOUNT_POINT": "test", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME": "test", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY": "test"}, []string{}, map[string]interface{}{}},
-		{"CNAB_AZURE_STATE_ options should all be set 2", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME is not set", map[string]string{"CNAB_AZURE_STATE_FILESHARE": "test"}, []string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME"}, map[string]interface{}{}},
-		{"CNAB_AZURE_STATE_ options should all be set 3", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY is not set", map[string]string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME": "test"}, []string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"}, map[string]interface{}{}},
-		{"CNAB_AZURE_STATE_ options should all be set 4", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_MOUNT_POINT is not set", map[string]string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY": "test"}, []string{"CNAB_AZURE_STATE_MOUNT_POINT"}, map[string]interface{}{}},
-		{"CNAB_AZURE_STATE_ options should all be set 5", true, "All of CNAB_AZURE_STATE_PATH,CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY,CNAB_AZURE_STATE_MOUNT_POINT must be set when one is set. CNAB_AZURE_STATE_PATH is not set", map[string]string{"CNAB_AZURE_STATE_MOUNT_POINT": "test"}, []string{"CNAB_AZURE_STATE_PATH"}, map[string]interface{}{}},
-		{"CNAB_AZURE_STATE_MOUNT_POINT_should_be_an_absolute_path", true, "value (test) of CNAB_AZURE_STATE_MOUNT_POINT is not an absolute path", map[string]string{"CNAB_AZURE_STATE_PATH": "test", "CNAB_AZURE_STATE_MOUNT_POINT": "test"}, []string{}, map[string]interface{}{}},
-		{"No error when setting CNAB_AZURE__MOUNT_POINT", false, "", map[string]string{"CNAB_AZURE_STATE_MOUNT_POINT": "/mnt/path"}, []string{"CNAB_AZURE_STATE_MOUNT_POINT"}, map[string]interface{}{"mountStateVolume": true}},
+		{"CNAB_AZURE_STATE_ options should all be set 1", true, "All of CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY must be set when one is set. CNAB_AZURE_STATE_FILESHARE is not set", map[string]string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME": "test", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY": "test"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_ options should all be set 2", true, "All of CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY must be set when one is set. CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME is not set", map[string]string{"CNAB_AZURE_STATE_FILESHARE": "test"}, []string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME"}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_ options should all be set 3", true, "All of CNAB_AZURE_STATE_FILESHARE,CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME,CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY must be set when one is set. CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY is not set", map[string]string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME": "test"}, []string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_MOUNT_POINT_should_be_an_absolute_path", true, "value (test) of CNAB_AZURE_STATE_MOUNT_POINT is not an absolute path", map[string]string{"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY": "test", "CNAB_AZURE_STATE_MOUNT_POINT": "test"}, []string{}, map[string]interface{}{}},
+		{"CNAB_AZURE_STATE_MOUNT_POINT_should_not be root path", true, "CNAB_AZURE_STATE_MOUNT_POINT should not be root path", map[string]string{"CNAB_AZURE_STATE_MOUNT_POINT": "/../"}, []string{}, map[string]interface{}{}},
+		{"No error when setting CNAB_AZURE_MOUNT_POINT", false, "", map[string]string{"CNAB_AZURE_STATE_MOUNT_POINT": "/mnt/path"}, []string{}, map[string]interface{}{"mountStateVolume": true, "stateMountPoint": "/mnt/path"}},
+		//{"No error when setting CNAB_AZURE_STATE_PATH", false, "", map[string]string{"CNAB_AZURE_STATE_PATH": "/statepath"}, []string{}, map[string]interface{}{"mountStateVolume": true, "statePath": "/statepath"}},
 	}
 	// Unset any CNAB_AZURE environment variables as these will make the tests fail
 	test.UnSetDriverEnvironmentVars(t)
@@ -170,7 +172,7 @@ func TestRunAzureTest(t *testing.T) {
 	// Check for environment variables to use for login these are expected to be the name of the relevant driver variable prefixed with TEST_
 	for _, e := range loginEnvVars {
 		envvar := os.Getenv(fmt.Sprintf("TEST_%s", e))
-		t.Logf("Setting Env Variable: %s=%s", e, envvar)
+		t.Logf("Setting Env Variable: %s", e)
 		os.Setenv(e, envvar)
 	}
 	defer test.UnSetDriverEnvironmentVars(t)
@@ -294,13 +296,16 @@ func TestRunAzureTest(t *testing.T) {
 			t.Logf("Environment Variable %s is not set", envvarName)
 			t.FailNow()
 		}
-		t.Logf("Setting Env Variable: %s=%s", e, envvar)
+		t.Logf("Setting Env Variable: %s", e)
 		os.Setenv(e, envvar)
 	}
 	test.SetStatePathEnvironmentVariables()
 	op = cnabdriver.Operation{
-		Action:       "install",
-		Installation: "test-install-with-state",
+		Action: "install",
+		Bundle: &bundle.Bundle{
+			Name: "test-install-with-state",
+		},
+		Installation: "",
 		Image: bundle.InvocationImage{
 			BaseImage: bundle.BaseImage{
 				Image:     "simongdavies/azure-outputs-cnab",
@@ -317,6 +322,7 @@ func TestRunAzureTest(t *testing.T) {
 			"/cnab/app/image-map.json": "{}",
 		},
 	}
+	op.Installation = uuid.New().String()
 	d, err = NewACIDriver("test-version")
 	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation with mounted state storage. Got: %v", err)
 	assert.NotNil(t, d)
@@ -325,7 +331,8 @@ func TestRunAzureTest(t *testing.T) {
 	afs, err := az.NewFileShare(os.Getenv("TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME"), os.Getenv("TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"), os.Getenv("TEST_CNAB_AZURE_STATE_FILESHARE"))
 	assert.NoErrorf(t, err, "Expected no error when creating FileShare object. Got: %v", err)
 	// Check State was written
-	content, err := afs.ReadFileFromShare(os.Getenv("CNAB_AZURE_STATE_PATH") + "/teststate")
+	statePath := fmt.Sprintf("%s/%s", strings.ToLower(op.Bundle.Name), strings.ToLower(op.Installation))
+	content, err := afs.ReadFileFromShare(statePath + "/teststate")
 	assert.NoErrorf(t, err, "Expected no error when reading state. Got: %v", err)
 	assert.EqualValuesf(t, "TEST", content, "Expected state to be TEST but got %s", content)
 
@@ -333,7 +340,7 @@ func TestRunAzureTest(t *testing.T) {
 
 	op = cnabdriver.Operation{
 		Action:       "install",
-		Installation: "test-install-with-outputs",
+		Installation: "",
 		Image: bundle.InvocationImage{
 			BaseImage: bundle.BaseImage{
 				Image:     "simongdavies/azure-outputs-cnab",
@@ -342,6 +349,7 @@ func TestRunAzureTest(t *testing.T) {
 			},
 		},
 		Bundle: &bundle.Bundle{
+			Name: "test-install-with-outputs",
 			Definitions: definition.Definitions{
 				"output1": &definition.Schema{},
 				"output2": &definition.Schema{},
@@ -369,6 +377,7 @@ func TestRunAzureTest(t *testing.T) {
 		},
 		Outputs: []string{"/cnab/app/outputs/output1", "/cnab/app/outputs/output2"},
 	}
+	op.Installation = uuid.New().String()
 	d, err = NewACIDriver("test-version")
 	assert.NoErrorf(t, err, "Expected no error when creating Driver to run operation with outputs. Got: %v", err)
 	assert.NotNil(t, d)

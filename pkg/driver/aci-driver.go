@@ -32,6 +32,8 @@ const (
 	fileMountPoint       = "/mnt/BundleFiles"
 	fileMountName        = "bundlefilevolume"
 	stateMountName       = "state"
+	stateMountPoint      = "/cnab/state"
+	statePath            = "state"
 	cnabOutputDirName    = "outputs"
 	cnabOutputMountPoint = "/cnab/app/"
 )
@@ -66,6 +68,7 @@ type aciDriver struct {
 	userAgent               string
 	loginInfo               az.LoginInfo
 	hasOutputs              bool
+	deleteOutputs           bool
 }
 
 // Config returns the ACI driver configuration options
@@ -92,8 +95,9 @@ func (d *aciDriver) Config() map[string]string {
 		"CNAB_AZURE_STATE_FILESHARE":                    "The File Share for Azure State volume",
 		"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME":         "The Storage Account for the Azure State File Share",
 		"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY":          "The Storage Key for the Azure State File Share",
-		"CNAB_AZURE_STATE_PATH":                         "The local path relative to the mount point where state can be stored - this is set as a environment variable on the ACI instance and can be used by a bundle to persist filesystem data",
-		"CNAB_AZURE_STATE_MOUNT_POINT":                  "The mount point location for state volume",
+		//"CNAB_AZURE_STATE_PATH":                         "The local path relative to the mount point where state can be stored - this is set as a environment variable on the ACI instance and can be used by a bundle to persist filesystem data",
+		"CNAB_AZURE_STATE_MOUNT_POINT":             "The mount point location for state volume",
+		"CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE": "Any Outputs Created in the fileshare are deleted on completion",
 	}
 }
 
@@ -187,7 +191,7 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	// If aci driver name is not set generate a unique aci name
 	d.aciName = config["CNAB_AZURE_NAME"]
 	if len(d.aciName) == 0 {
-		d.aciName = fmt.Sprintf("duffle-%s", uuid.New().String())
+		d.aciName = fmt.Sprintf("cnab-azure-%s", uuid.New().String())
 	}
 
 	log.Debug("Generated ACI Name:", d.aciName)
@@ -255,13 +259,7 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	}
 
 	// CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH enables the SPN to also be used for authenticating to the registry that contains the invocation image
-
-	log.Debugf("CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH is : %s", config["CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH"])
-
 	d.useSPForACR = len(config["CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH"]) > 0 && strings.ToLower(config["CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH"]) == "true"
-
-	log.Debugf("useSPForACR is : %v", d.useSPForACR)
-
 	if d.useSPForACR {
 		if registryCredsSet {
 			return errors.New("CNAB_AZURE_USE_CLIENT_CREDS_FOR_REGISTRY_AUTH should not be set if CNAB_AZURE_REGISTRY_USERNAME and CNAB_AZURE_REGISTRY_PASSWORD are set")
@@ -274,20 +272,32 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	}
 
 	// CNAB_AZURE_STATE_* allows an Azure File Share to be mounted to the invocation image sto be used for instance state
-	d.mountStateVolume, err = checkAllOrNoneSet(config, []string{"CNAB_AZURE_STATE_PATH", "CNAB_AZURE_STATE_FILESHARE", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY", "CNAB_AZURE_STATE_MOUNT_POINT"})
+	// TODO Allow empty storage account key and do runtime lookup
+	d.mountStateVolume, err = checkAllOrNoneSet(config, []string{"CNAB_AZURE_STATE_FILESHARE", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"})
 	if err != nil {
 		return err
 	}
 
 	if d.mountStateVolume {
-		// TODO Allow empty storage account key and do runtime lookup
-		if !path.IsAbs(config["CNAB_AZURE_STATE_MOUNT_POINT"]) {
-			return fmt.Errorf("value (%s) of CNAB_AZURE_STATE_MOUNT_POINT is not an absolute path", config["CNAB_AZURE_STATE_MOUNT_POINT"])
+		// set state mount point to default if not set
+		if len(config["CNAB_AZURE_STATE_MOUNT_POINT"]) > 0 {
+			if !path.IsAbs(config["CNAB_AZURE_STATE_MOUNT_POINT"]) {
+				return fmt.Errorf("value (%s) of CNAB_AZURE_STATE_MOUNT_POINT is not an absolute path", config["CNAB_AZURE_STATE_MOUNT_POINT"])
+			}
+			d.stateMountPoint = path.Clean(strings.TrimSpace(strings.TrimSuffix(config["CNAB_AZURE_STATE_MOUNT_POINT"], "/")))
+			log.Debugf("d.stateMountPoint is : %v", d.stateMountPoint)
+			if d.stateMountPoint == "." || d.stateMountPoint == "/" {
+				return errors.New("CNAB_AZURE_STATE_MOUNT_POINT should not be root path")
+			}
+		} else {
+			d.stateMountPoint = stateMountPoint
 		}
 
+		d.deleteOutputs = true
+		if len(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) > 0 && strings.ToLower(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) == "false" {
+			d.deleteOutputs = false
+		}
 		d.stateFileShare = config["CNAB_AZURE_STATE_FILESHARE"]
-		d.stateMountPoint = strings.TrimSpace(strings.TrimSuffix(config["CNAB_AZURE_STATE_MOUNT_POINT"], "/"))
-		d.statePath = strings.TrimSpace(strings.TrimSuffix(config["CNAB_AZURE_STATE_PATH"], "/"))
 		d.stateStorageAccountName = config["CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME"]
 		d.stateStorageAccountKey = config["CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"]
 	}
@@ -333,10 +343,13 @@ func (d *aciDriver) exec(op *driver.Operation) (driver.OperationResult, error) {
 	}
 
 	// Check that there is a state volume if needed
-	// TODO Check that outputs are for action (needs update to op structure to include bundle details see )
 	d.hasOutputs = len(op.Outputs) > 0
 	if d.hasOutputs && !d.mountStateVolume {
 		return operationResult, errors.New("Bundle has outputs no volume mounted for state, set CNAB_AZURE_STATE_* variables so that state can be retrieved")
+	}
+
+	if d.hasOutputs && d.deleteOutputs {
+		defer d.deleteOutputsFromFileShare(op, &operationResult)
 	}
 
 	d.loginInfo, err = az.LoginToAzure(d.clientID, d.clientSecret, d.tenantID, d.applicationID)
@@ -357,22 +370,54 @@ func (d *aciDriver) exec(op *driver.Operation) (driver.OperationResult, error) {
 	// Get any outputs
 	return d.getOutputs(op, &operationResult)
 }
-
+func (d *aciDriver) deleteOutputsFromFileShare(op *driver.Operation, operationResult *driver.OperationResult) {
+	fmt.Println("Deleting Outputs from Azure FileShare")
+	afs, err := az.NewFileShare(d.stateStorageAccountName, d.stateStorageAccountKey, d.stateFileShare)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Error creating AzureFileShare object to delete outputs: %v", err))
+		return
+	}
+	cnabOutputPrefix := cnabOutputMountPoint + cnabOutputDirName
+	for _, fullOutputName := range op.Outputs {
+		log.Debugf("Deleting output %s", fullOutputName)
+		outputName := strings.TrimPrefix(fullOutputName, cnabOutputPrefix+"/")
+		fileName := fmt.Sprintf("%s/%s/%s", d.statePath, cnabOutputDirName, outputName)
+		_, err := afs.DeleteFileFromShare(fileName)
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Error deleting output %s from fileshare:%v", fullOutputName, err))
+		}
+	}
+}
 func (d *aciDriver) getOutputs(op *driver.Operation, operationResult *driver.OperationResult) (driver.OperationResult, error) {
 	if d.hasOutputs {
+		fmt.Println("Retreiving Outputs")
 		afs, err := az.NewFileShare(d.stateStorageAccountName, d.stateStorageAccountKey, d.stateFileShare)
 		if err != nil {
-			return *operationResult, fmt.Errorf("Error creating AzureFileShare: %v", err)
+			return *operationResult, fmt.Errorf("Error creating AzureFileShare structure: %v", err)
 		}
 		cnabOutputPrefix := cnabOutputMountPoint + cnabOutputDirName
 		for _, fullOutputName := range op.Outputs {
-			outputName := strings.TrimPrefix(fullOutputName, cnabOutputPrefix+"/")
-			fileName := fmt.Sprintf("%s/%s/%s", d.statePath, cnabOutputDirName, outputName)
-			log.Debugf("Reading output for file: %s", fileName)
-			content, err := afs.ReadFileFromShare(fileName)
-			operationResult.Outputs[fullOutputName] = content
-			if err != nil {
-				return *operationResult, fmt.Errorf("Error reading output %s from AzureFileShare: %v", fullOutputName, err)
+			log.Debugf("Processing output for %s", fullOutputName)
+			// Output might not apply to this action
+			if output := op.Bundle.Outputs[fullOutputName]; output.AppliesTo(op.Action) {
+				log.Debugf("Checking for output for %s", fullOutputName)
+				outputName := strings.TrimPrefix(fullOutputName, cnabOutputPrefix+"/")
+				fileName := fmt.Sprintf("%s/%s/%s", d.statePath, cnabOutputDirName, outputName)
+				exists, err := afs.CheckIfFileExists(fileName)
+				if err != nil {
+					return *operationResult, fmt.Errorf("Error checking file exists %s from AzureFileShare: %v", fileName, err)
+				}
+				if !exists {
+					log.Debugf("File: %s does not exist", fileName)
+					// Output may not exist cnab-go command driver checks for default values so no need to check here
+					continue
+				}
+				log.Debugf("Reading output for file: %s", fileName)
+				content, err := afs.ReadFileFromShare(fileName)
+				if err != nil {
+					return *operationResult, fmt.Errorf("Error reading output %s from AzureFileShare: %v", fileName, err)
+				}
+				operationResult.Outputs[fullOutputName] = content
 			}
 		}
 	}
@@ -423,7 +468,7 @@ func (d *aciDriver) setAzureSubscriptionID() error {
 func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 
 	// TODO Check that image is a type and platform that can be executed by ACI
-
+	fmt.Println("Creating Azure Container Instance To Execute Bundle")
 	// GET ACI Config
 	image := imageWithDigest(op.Image)
 	ref, err := reference.ParseAnyReference(image)
@@ -576,10 +621,12 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 	var volume = containerinstance.Volume{}
 	var volumeMount = containerinstance.VolumeMount{}
 	if d.mountStateVolume {
+		d.statePath = fmt.Sprintf("%s/%s", strings.ToLower(op.Bundle.Name), strings.ToLower(op.Installation))
+		log.Debug("Bundle:", strings.ToLower(op.Bundle.Name), "Installation:", strings.ToLower(op.Installation))
 		statePath := fmt.Sprintf("%s/%s", d.stateMountPoint, d.statePath)
 		env = append(env, containerinstance.EnvironmentVariable{
-			Name:        to.StringPtr("STATE_PATH"),
-			SecureValue: to.StringPtr(statePath),
+			Name:  to.StringPtr("STATE_PATH"),
+			Value: to.StringPtr(statePath),
 		})
 		volume.Name = to.StringPtr(stateMountName)
 		volume.AzureFile = d.getAzureFileVolume()
@@ -606,6 +653,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 
 	if d.deleteACIResources {
 		defer func() {
+			fmt.Println("Cleaning up Azure Resources created to execute Bundle")
 			log.Debug("Deleting Container Instance")
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -619,6 +667,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 		}()
 	}
 
+	fmt.Println("Running Bundle Instance in Azure Container Instance")
 	// Check if the container is running
 	state, err := d.getContainerState(d.aciRG, d.aciName)
 	if err != nil {
@@ -860,6 +909,7 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 
 	if hasFiles || d.hasOutputs {
 		if hasFiles {
+			// Get the filenames and data  from the secret volume and place them where they are expected by the bundle
 			scriptBuilder.WriteString(fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;cd -;", fileMountPoint))
 		}
 
