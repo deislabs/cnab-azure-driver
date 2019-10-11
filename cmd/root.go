@@ -139,10 +139,10 @@ func GetOperation() (*cnabdriver.Operation, error) {
 	}
 
 	if log.IsLevelEnabled(log.DebugLevel) {
-		var opJson bytes.Buffer
-		json.Indent(&opJson, data, "", "\t")
+		var opJSON bytes.Buffer
+		json.Indent(&opJSON, data, "", "\t")
 		fmt.Println("Operation:")
-		fmt.Println(string(opJson.Bytes()))
+		fmt.Println(string(opJSON.Bytes()))
 		fmt.Println("End Operation")
 	}
 
