@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -132,12 +133,20 @@ func GetOperation() (*cnabdriver.Operation, error) {
 		return nil, errors.New("No input passed on stdin")
 	}
 
-	bytes, err := ioutil.ReadAll(os.Stdin)
+	data, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading from stdin: %v", err)
 	}
 
-	if err = json.Unmarshal(bytes, &op); err != nil {
+	if log.IsLevelEnabled(log.DebugLevel) {
+		var opJson bytes.Buffer
+		json.Indent(&opJson, data, "", "\t")
+		fmt.Println("Operation:")
+		fmt.Println(string(opJson.Bytes()))
+		fmt.Println("End Operation")
+	}
+
+	if err = json.Unmarshal(data, &op); err != nil {
 		return nil, fmt.Errorf("Error getting bundle.json: %v", err)
 	}
 

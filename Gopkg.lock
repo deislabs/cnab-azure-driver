@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:331fa4f7c2dfd1491379b3c6f7a0a08d79a90d0b2b299710ba860605ad68031b"
+  digest = "1:8797345e2e7ea3deda4a109f5a109240a74c172392c0b71b1620d8b2dde96137"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = [
     "services/authorization/mgmt/2015-07-01/authorization",
@@ -10,6 +10,7 @@
     "services/msi/mgmt/2018-11-30/msi",
     "services/resources/mgmt/2015-11-01/subscriptions",
     "services/resources/mgmt/2017-05-10/resources",
+    "services/storage/mgmt/2019-04-01/storage",
     "storage",
     "version",
   ]
@@ -232,6 +233,14 @@
   revision = "543471e840be449c53d44b32c7adf1261ad67e37"
 
 [[projects]]
+  digest = "1:2d8307a7345570ece92d85e80f17c9de719fa44a11f5ccd828ab2bb4a328314c"
+  name = "gopkg.in/go-ini/ini.v1"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "700781759788472518f4ea52321519b066061a7b"
+  version = "v1.48.0"
+
+[[projects]]
   digest = "1:59f10c1537d2199d9115d946927fe31165959a95190849c82ff11e05803528b0"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -248,6 +257,7 @@
     "github.com/Azure/azure-sdk-for-go/services/msi/mgmt/2018-11-30/msi",
     "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2015-11-01/subscriptions",
     "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources",
+    "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-04-01/storage",
     "github.com/Azure/azure-sdk-for-go/storage",
     "github.com/Azure/go-autorest/autorest",
     "github.com/Azure/go-autorest/autorest/adal",
@@ -256,12 +266,14 @@
     "github.com/Azure/go-autorest/autorest/azure/cli",
     "github.com/Azure/go-autorest/autorest/to",
     "github.com/deislabs/cnab-go/bundle",
+    "github.com/deislabs/cnab-go/bundle/definition",
     "github.com/deislabs/cnab-go/driver",
     "github.com/docker/distribution/reference",
     "github.com/google/uuid",
     "github.com/sirupsen/logrus",
     "github.com/spf13/cobra",
     "github.com/stretchr/testify/assert",
+    "gopkg.in/go-ini/ini.v1",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

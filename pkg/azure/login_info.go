@@ -77,9 +77,9 @@ func LoginToAzure(clientID string, clientSecret string, tenantID string, applica
 	}
 
 	// Attempt to use token from CloudShell
-	if len(os.Getenv("ACC_CLOUD")) > 0 {
+	if IsInCloudShell() {
 		log.Debug("Attempting to Login with CloudShell")
-		loginInfo.OAuthTokenProvider, err = getCloudShellToken()
+		loginInfo.OAuthTokenProvider, err = GetCloudShellToken()
 		if err != nil {
 			return loginInfo, fmt.Errorf("Attempt to get CloudShell token failed: %v", err)
 		}
@@ -115,7 +115,8 @@ func LoginToAzure(clientID string, clientSecret string, tenantID string, applica
 	return loginInfo, fmt.Errorf("Cannot login to Azure - no valid credentials provided or available, failed to login with Azure cli: %v", err)
 }
 
-func getCloudShellToken() (*adal.Token, error) {
+//GetCloudShellToken gets the CloudShell Token
+func GetCloudShellToken() (*adal.Token, error) {
 
 	MSIEndpoint := os.Getenv("MSI_ENDPOINT")
 	log.Debug("CloudShell MSI Endpoint", MSIEndpoint)
@@ -127,7 +128,7 @@ func getCloudShellToken() (*adal.Token, error) {
 	client := http.Client{
 		Timeout: timeout,
 	}
-	req, err := http.NewRequest("GET", "http://localhost:50342/oauth2/token", nil)
+	req, err := http.NewRequest("GET", MSIEndpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating HTTP Request to CloudShell Token: %v", err)
 	}

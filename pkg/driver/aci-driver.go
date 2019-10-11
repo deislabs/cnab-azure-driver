@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	userAgentPrefix      = "DuffleACIDriver"
+	userAgentPrefix      = "azure-cnab-driver"
 	fileMountPoint       = "/mnt/BundleFiles"
 	fileMountName        = "bundlefilevolume"
 	stateMountName       = "state"
@@ -59,6 +59,7 @@ type aciDriver struct {
 	useSPForACR             bool
 	imageRegistryUser       string
 	imageRegistryPassword   string
+	hasStateVolumeInfo      bool
 	mountStateVolume        bool
 	stateFileShare          string
 	stateStorageAccountName string
@@ -95,9 +96,8 @@ func (d *aciDriver) Config() map[string]string {
 		"CNAB_AZURE_STATE_FILESHARE":                    "The File Share for Azure State volume",
 		"CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME":         "The Storage Account for the Azure State File Share",
 		"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY":          "The Storage Key for the Azure State File Share",
-		//"CNAB_AZURE_STATE_PATH":                         "The local path relative to the mount point where state can be stored - this is set as a environment variable on the ACI instance and can be used by a bundle to persist filesystem data",
-		"CNAB_AZURE_STATE_MOUNT_POINT":             "The mount point location for state volume",
-		"CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE": "Any Outputs Created in the fileshare are deleted on completion",
+		"CNAB_AZURE_STATE_MOUNT_POINT":                  "The mount point location for state volume",
+		"CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE":      "Any Outputs Created in the fileshare are deleted on completion",
 	}
 }
 
@@ -136,7 +136,7 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	d.clientSecret = config["CNAB_AZURE_CLIENT_SECRET"]
 	log.Debug("clientSecret:", len(d.clientSecret) > 0)
 
-	//Validate that both of Client Id, CLient Secret and Tenant Id are set
+	//Validate that both of Client Id, Client Secret and Tenant Id are set
 	clientCreds, err := checkAllOrNoneSet(config, []string{"CNAB_AZURE_CLIENT_ID", "CNAB_AZURE_CLIENT_SECRET"})
 	if err != nil {
 		return err
@@ -166,9 +166,11 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 		return errors.New("CNAB_AZURE_TENANT_ID should not be set when CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET or CNAB_AZURE_APP_ID are not set")
 	}
 
-	// TODO check for default subscription in azure CLI config
 	// Azure Subscription Id to create resources to run invocation image in - if this is not set then the first subscription found will be used
 	d.subscriptionID = config["CNAB_AZURE_SUBSCRIPTION_ID"]
+	if len(d.subscriptionID) == 0 {
+		d.subscriptionID = az.GetSubscriptionIDFromCliProfile()
+	}
 	log.Debug("Subscription:", d.subscriptionID)
 
 	// Check to see if an resource group name has been set, if not then a location must be set , if an resource group name is set and no location is used then the resource group must already exist and the location of he resource group will be used for the resources
@@ -176,8 +178,11 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	log.Debug("Resource Group:", d.aciRG)
 	d.aciLocation = strings.ToLower(strings.Replace(config["CNAB_AZURE_LOCATION"], " ", "", -1))
 	log.Debug("Location:", d.aciLocation)
+
+	if len(d.aciRG) == 0 && len(d.aciLocation) == 0 && az.IsInCloudShell() {
+		d.aciRG, d.aciLocation = az.TryGetRGandLocation()
+	}
 	if len(d.aciRG) == 0 && len(d.aciLocation) == 0 {
-		// TODO check if running in cloudshell or cli configured and defaults are set
 		return errors.New("ACI Driver requires CNAB_AZURE_LOCATION environment variable or an existing Resource Group in CNAB_AZURE_RESOURCE_GROUP")
 	}
 
@@ -270,37 +275,40 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 		d.imageRegistryPassword = d.clientSecret
 		d.imageRegistryUser = d.clientID
 	}
-
+	d.mountStateVolume = false
 	// CNAB_AZURE_STATE_* allows an Azure File Share to be mounted to the invocation image sto be used for instance state
 	// TODO Allow empty storage account key and do runtime lookup
-	d.mountStateVolume, err = checkAllOrNoneSet(config, []string{"CNAB_AZURE_STATE_FILESHARE", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"})
+	d.hasStateVolumeInfo, err = checkAllOrNoneSet(config, []string{"CNAB_AZURE_STATE_FILESHARE", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME", "CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"})
 	if err != nil {
 		return err
 	}
 
-	if d.mountStateVolume {
-		// set state mount point to default if not set
-		if len(config["CNAB_AZURE_STATE_MOUNT_POINT"]) > 0 {
-			if !path.IsAbs(config["CNAB_AZURE_STATE_MOUNT_POINT"]) {
-				return fmt.Errorf("value (%s) of CNAB_AZURE_STATE_MOUNT_POINT is not an absolute path", config["CNAB_AZURE_STATE_MOUNT_POINT"])
-			}
-			d.stateMountPoint = path.Clean(strings.TrimSpace(strings.TrimSuffix(config["CNAB_AZURE_STATE_MOUNT_POINT"], "/")))
-			log.Debugf("d.stateMountPoint is : %v", d.stateMountPoint)
-			if d.stateMountPoint == "." || d.stateMountPoint == "/" {
-				return errors.New("CNAB_AZURE_STATE_MOUNT_POINT should not be root path")
-			}
-		} else {
-			d.stateMountPoint = stateMountPoint
-		}
-
-		d.deleteOutputs = true
-		if len(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) > 0 && strings.ToLower(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) == "false" {
-			d.deleteOutputs = false
-		}
+	if d.hasStateVolumeInfo {
 		d.stateFileShare = config["CNAB_AZURE_STATE_FILESHARE"]
 		d.stateStorageAccountName = config["CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME"]
 		d.stateStorageAccountKey = config["CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY"]
+		d.mountStateVolume = true
 	}
+
+	// set state mount point to default if not set
+	if len(config["CNAB_AZURE_STATE_MOUNT_POINT"]) > 0 {
+		if !path.IsAbs(config["CNAB_AZURE_STATE_MOUNT_POINT"]) {
+			return fmt.Errorf("value (%s) of CNAB_AZURE_STATE_MOUNT_POINT is not an absolute path", config["CNAB_AZURE_STATE_MOUNT_POINT"])
+		}
+		d.stateMountPoint = path.Clean(strings.TrimSpace(strings.TrimSuffix(config["CNAB_AZURE_STATE_MOUNT_POINT"], "/")))
+		log.Debugf("d.stateMountPoint is : %v", d.stateMountPoint)
+		if d.stateMountPoint == "." || d.stateMountPoint == "/" {
+			return errors.New("CNAB_AZURE_STATE_MOUNT_POINT should not be root path")
+		}
+	} else {
+		d.stateMountPoint = stateMountPoint
+	}
+
+	d.deleteOutputs = true
+	if len(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) > 0 && strings.ToLower(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) == "false" {
+		d.deleteOutputs = false
+	}
+
 	return nil
 }
 
@@ -344,7 +352,22 @@ func (d *aciDriver) exec(op *driver.Operation) (driver.OperationResult, error) {
 
 	// Check that there is a state volume if needed
 	d.hasOutputs = len(op.Outputs) > 0
-	if d.hasOutputs && !d.mountStateVolume {
+	if d.hasOutputs && !d.hasStateVolumeInfo && az.IsInCloudShell() {
+		log.Debug("Getting File share info from CloudShell")
+		fileshare, err := az.GetCloudDriveDetails(d.userAgent)
+		if err != nil {
+			return operationResult, fmt.Errorf("Bundle has outputs and no volume mounted for state, failed to get clouddrive details ,set CNAB_AZURE_STATE_* variables so that state can be retrieved: %v", err)
+		}
+		log.Debug("State File Share: ", fileshare.Name)
+		log.Debug("State Storage Account Name: ", fileshare.StorageAccountName)
+		d.stateFileShare = fileshare.Name
+		d.stateStorageAccountName = fileshare.StorageAccountName
+		d.stateStorageAccountKey = fileshare.StorageAccountKey
+		d.mountStateVolume = true
+		d.hasStateVolumeInfo = true
+	}
+
+	if d.hasOutputs && !d.hasStateVolumeInfo {
 		return operationResult, errors.New("Bundle has outputs no volume mounted for state, set CNAB_AZURE_STATE_* variables so that state can be retrieved")
 	}
 

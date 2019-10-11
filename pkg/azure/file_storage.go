@@ -41,6 +41,12 @@ func (afs *FileShare) ReadFileFromShare(fileName string) (string, error) {
 	return string(content), nil
 }
 func (afs *FileShare) DeleteFileFromShare(fileName string) (bool, error) {
+	if exists, err := afs.CheckIfFileExists(fileName); err != nil || !exists {
+		if err != nil {
+			return false, fmt.Errorf("Error checking if file %s exists in FileShare %s: %v", fileName, afs.share.Name, err)
+		}
+		return false, nil
+	}
 	file := afs.share.GetRootDirectoryReference().GetFileReference(path.Clean(fileName))
 	return file.DeleteIfExists(nil)
 }
