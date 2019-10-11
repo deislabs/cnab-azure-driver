@@ -32,7 +32,7 @@ func TestNewACIDriver(t *testing.T) {
 	}{
 
 		{"Either CNAB_AZURE_LOCATION or CNAB_AZURE_RESOURCE_GROUP must be set", true, "ACI Driver requires CNAB_AZURE_LOCATION environment variable or an existing Resource Group in CNAB_AZURE_RESOURCE_GROUP", map[string]string{}, []string{}, map[string]interface{}{}},
-		{"No Error if CNAB_AZURE_LOCATION is set", false, "", map[string]string{"CNAB_AZURE_LOCATION": "test"}, []string{}, map[string]interface{}{"userAgent": "DuffleACIDriver-test-version", "aciLocation": "test"}},
+		{"No Error if CNAB_AZURE_LOCATION is set", false, "", map[string]string{"CNAB_AZURE_LOCATION": "test"}, []string{}, map[string]interface{}{"userAgent": "azure-cnab-driver-test-version", "aciLocation": "test"}},
 		{"No Error if CNAB_AZURE_RESOURCE_GROUP is set", false, "", map[string]string{"CNAB_AZURE_RESOURCE_GROUP": "test"}, []string{"CNAB_AZURE_LOCATION"}, map[string]interface{}{"aciRG": "test"}},
 		{"No Error if CNAB_AZURE_DELETE_RESOURCES is set", false, "", map[string]string{"CNAB_AZURE_DELETE_RESOURCES": "true"}, []string{}, map[string]interface{}{"deleteACIResources": true}},
 		{"Both CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET should be set 1", true, "All of CNAB_AZURE_CLIENT_ID,CNAB_AZURE_CLIENT_SECRET must be set when one is set. CNAB_AZURE_CLIENT_SECRET is not set", map[string]string{"CNAB_AZURE_CLIENT_ID": "test"}, []string{}, map[string]interface{}{}},
