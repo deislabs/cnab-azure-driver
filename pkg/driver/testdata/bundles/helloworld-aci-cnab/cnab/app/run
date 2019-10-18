@@ -4,10 +4,10 @@ set -e
 
 action=$CNAB_ACTION
 name=$CNAB_INSTALLATION_NAME
-param=${CNAB_P_HELLO:-hello}
+param=${CNAB_P_HELLO:-World}
 login_type="${AZURE_MSI_TYPE:-none}"
 
-echo "$(date) $param world"
+echo "$(date)  Hello $param"
 case $action in
     install)
     echo "$(date) Install action"

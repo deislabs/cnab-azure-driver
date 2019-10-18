@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -e
+
+action=$CNAB_ACTION
+name=$CNAB_INSTALLATION_NAME
+
+case $action in
+    install)
+    echo "$(date) Install action"
+    echo -n OUTPUT_1 > "/cnab/app/outputs/output1"
+	echo -n OUTPUT_2 > "/cnab/app/outputs/output2"
+    ;;
+    uninstall)
+    echo "uninstall action"
+    ;;
+    upgrade)
+    echo "Upgrade action"
+    ;;
+    *)
+    echo "No action for $action"
+    ;;
+esac
+echo "$(date) Action $action complete for $name"

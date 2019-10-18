@@ -8,7 +8,7 @@
     },
     "image": {
         "image": "testing.azurecr.io/duffle/test",
-        "imageType": "docker",
+        "image_type": "docker",
         "contentDigest": "sha256:ba27c336615454378b0c1d85ef048583b1fd607b1a96defc90988292e9fb1edb"
     },
     "environment": {
@@ -17,5 +17,9 @@
     },
     "files": {
         "/cnab/app/image-map.json": "{}"
-    }
+    },
+    "outputs":[
+        "/cnab/app/outputs/output1",
+        "/cnab/app/outputs/output2"
+    ]
 }

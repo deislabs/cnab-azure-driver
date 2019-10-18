@@ -17,6 +17,7 @@ vendor/
 .vimrc
 *.cnab
 __pycache__/
-/duffle-aci-driver
+/cnab-azure
 .vscode/settings.json
 /bin
+*.local.*

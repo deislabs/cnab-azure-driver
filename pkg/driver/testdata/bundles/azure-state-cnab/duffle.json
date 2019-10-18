@@ -1,0 +1,33 @@
+{
+    "name": "azure-outputs",
+    "version": "0.1.0",
+    "description": "A test bundle to be used with Azure ACI Driver that provides outputs",
+    "keywords": [
+        "cnab",
+        "azure",
+        "outputs"
+    ],
+    "maintainers": [{
+        "name": "Simon Davies",
+        "email": "simon.davies@example.com",
+        "url": "https://example.com"
+    }],
+    "invocationImages": {
+        "cnab": {
+            "name": "cnab",
+            "builder": "docker",
+            "configuration": {
+                "registry": "simongdavies"
+            }
+        }
+    },
+    "parameters": {
+        "INPUT1": {
+            "type": "string",
+            "destination": {
+                "env": "INPUT_1"
+            }
+        }
+    },
+    "credentials": null
+}

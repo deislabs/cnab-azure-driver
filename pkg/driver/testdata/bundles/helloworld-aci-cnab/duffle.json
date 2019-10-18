@@ -1,15 +1,15 @@
 {
     "name": "helloworld-aci",
     "version": "0.1.0",
-    "description": "A example bundle to be used with Azure ACI Driver",
+    "description": "A test bundle to be used with Azure ACI Driver",
     "keywords": [
         "helloworld",
         "cnab",
-        "tutorial"
+        "azure"
     ],
     "maintainers": [{
-        "name": "Jane Doe",
-        "email": "jane.doe@example.com",
+        "name": "Simon Davies",
+        "email": "simon.davies@example.com",
         "url": "https://example.com"
     }],
     "invocationImages": {

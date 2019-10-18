@@ -6,6 +6,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/msi/mgmt/2018-11-30/msi"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2015-11-01/subscriptions"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-04-01/storage"
 	"github.com/Azure/go-autorest/autorest"
 )
 
@@ -71,4 +72,12 @@ func GetProvidersClient(subscriptionID string, authorizer autorest.Authorizer, u
 	providersClient.Authorizer = authorizer
 	providersClient.AddToUserAgent(userAgent)
 	return providersClient
+}
+
+// GetStorageAccountsClient gets a Providers Management Client
+func GetStorageAccountsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) storage.AccountsClient {
+	accountsClient := storage.NewAccountsClient(subscriptionID)
+	accountsClient.Authorizer = authorizer
+	accountsClient.AddToUserAgent(userAgent)
+	return accountsClient
 }

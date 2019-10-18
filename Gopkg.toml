@@ -24,18 +24,10 @@
 #   go-tests = true
 #   unused-packages = true
 
-
 [[constraint]]
-  name = "github.com/Azure/azure-sdk-for-go"
-  version = "29.0.0"
-
-[[constraint]]
-  name = "github.com/Azure/go-autorest"
-  version = "12.0.0"
-
-[[constraint]]
-  branch = "master"
   name = "github.com/deislabs/cnab-go"
+  branch = "command_outputs"
+  source = "github.com/simongdavies/cnab-go"
 
 [[constraint]]
   name = "github.com/google/uuid"
@@ -52,3 +44,11 @@
 [[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.3.0"
+
+[[constraint]]
+  name = "github.com/Azure/azure-sdk-for-go"
+  version = "33.4.0"
+
+[[constraint]]
+  name = "github.com/lestrrat-go/file-rotatelogs"
+  revision = "e0a88b0fe8408240e1560882fc17cb0bf66765cd"
