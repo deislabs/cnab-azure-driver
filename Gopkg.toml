@@ -48,3 +48,7 @@
 [[constraint]]
   name = "github.com/Azure/azure-sdk-for-go"
   version = "33.4.0"
+
+[[constraint]]
+  name = "github.com/lestrrat-go/file-rotatelogs"
+  revision = "e0a88b0fe8408240e1560882fc17cb0bf66765cd"

@@ -52,7 +52,7 @@ func (afs *FileShare) DeleteFileFromShare(fileName string) (bool, error) {
 }
 func (afs *FileShare) WriteFileToShare(fileName string, content []byte, overwrite bool) error {
 	cleanFileName, cleanDirName := getCleanFileNameParts(fileName)
-	log.Debugf("FileName:%s CleanFileName:%s CleanDirName:%s", fileName, cleanFileName, cleanDirName)
+	log.Debugf("Writing to FileShare FileName:%s CleanFileName:%s CleanDirName:%s", fileName, cleanFileName, cleanDirName)
 	if len(cleanFileName) == 0 {
 		return fmt.Errorf("No Filename in path: %s", fileName)
 	}
@@ -61,7 +61,7 @@ func (afs *FileShare) WriteFileToShare(fileName string, content []byte, overwrit
 	}
 
 	cleanFileName = path.Join(cleanDirName, cleanFileName)
-	log.Debugf("Full Clean File Name: %s", cleanFileName)
+	log.Debugf("Writing to FileShare Full Clean File Name: %s", cleanFileName)
 	file := afs.share.GetRootDirectoryReference().GetFileReference(cleanFileName)
 	if exists, err := file.Exists(); err != nil || (exists && !overwrite) {
 		if err != nil {
@@ -124,7 +124,7 @@ func (afs *FileShare) checkIfDirExists(dirPath string) (bool, error) {
 func (afs *FileShare) checkIfDirExistsAndCreate(dirPath string, create bool) (bool, error) {
 	log.Debugf("Checking if dir %s exists in share %s", dirPath, afs.share.Name)
 	dirPath = strings.Trim(path.Clean(dirPath), "/")
-	log.Debugf("Clean Dir Path: %s", dirPath)
+	log.Debugf("Checking if dir exists Clean Dir Path: %s", dirPath)
 	cleanPath := ""
 	if len(dirPath) > 0 {
 		// cannot use filepath.Split() or os.PathSeperator as this will fail if this code is run on Windows

@@ -126,6 +126,24 @@
   version = "v1.0.2"
 
 [[projects]]
+  digest = "1:60699c76fca5f3ecf90457e7bbf161104c523461a25a43f025eb9da0d88bef83"
+  name = "github.com/lestrrat-go/file-rotatelogs"
+  packages = [
+    ".",
+    "internal/option",
+  ]
+  pruneopts = "UT"
+  revision = "e0a88b0fe8408240e1560882fc17cb0bf66765cd"
+
+[[projects]]
+  branch = "master"
+  digest = "1:e8422604e15c6bfa75cecc717bb2f5cd14298bb3e04db12e7914dd01395bda17"
+  name = "github.com/lestrrat-go/strftime"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5c849dd2c51dd10faf5f1b86abec2db1ac3b9101"
+
+[[projects]]
   digest = "1:5d231480e1c64a726869bc4142d270184c419749d34f167646baa21008eb0a79"
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
@@ -270,6 +288,8 @@
     "github.com/deislabs/cnab-go/driver",
     "github.com/docker/distribution/reference",
     "github.com/google/uuid",
+    "github.com/lestrrat-go/file-rotatelogs",
+    "github.com/mitchellh/go-homedir",
     "github.com/sirupsen/logrus",
     "github.com/spf13/cobra",
     "github.com/stretchr/testify/assert",
