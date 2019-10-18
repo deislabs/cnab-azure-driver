@@ -70,6 +70,7 @@ type aciDriver struct {
 	loginInfo               az.LoginInfo
 	hasOutputs              bool
 	deleteOutputs           bool
+	debugContainer          bool
 }
 
 // Config returns the ACI driver configuration options
@@ -98,6 +99,7 @@ func (d *aciDriver) Config() map[string]string {
 		"CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY":          "The Storage Key for the Azure State File Share",
 		"CNAB_AZURE_STATE_MOUNT_POINT":                  "The mount point location for state volume",
 		"CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE":      "Any Outputs Created in the fileshare are deleted on completion",
+		"CNAB_AZURE_DEBUG_CONTAINER":                    "Replaces /cnab/app/run with tail -f /dev/null so that container can be connected to and debugged",
 	}
 }
 
@@ -126,17 +128,17 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	if len(config["CNAB_AZURE_DELETE_RESOURCES"]) > 0 && (strings.ToLower(config["CNAB_AZURE_DELETE_RESOURCES"]) == "false") {
 		d.deleteACIResources = false
 	}
-	log.Debug("Delete Resources:", d.deleteACIResources)
+	log.Debug("Delete Resources: ", d.deleteACIResources)
 
 	// Azure AAD Client Id for authenticating to Azure
 	d.clientID = config["CNAB_AZURE_CLIENT_ID"]
-	log.Debug("clientID:", d.clientID)
+	log.Debug("Client ID: ", d.clientID)
 
 	// Azure AAD Client Secret for authenticating to Azure
 	d.clientSecret = config["CNAB_AZURE_CLIENT_SECRET"]
-	log.Debug("clientSecret:", len(d.clientSecret) > 0)
+	log.Debug("Client Secret Set: ", len(d.clientSecret) > 0)
 
-	//Validate that both of Client Id, Client Secret and Tenant Id are set
+	//Validate that both of Client Id and Client Secret are set
 	clientCreds, err := checkAllOrNoneSet(config, []string{"CNAB_AZURE_CLIENT_ID", "CNAB_AZURE_CLIENT_SECRET"})
 	if err != nil {
 		return err
@@ -144,11 +146,11 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 
 	// Azure Tenant Id for authenticating to Azure
 	d.tenantID = config["CNAB_AZURE_TENANT_ID"]
-	log.Debug("tenantID:", d.tenantID)
+	log.Debug("Tenant ID: ", d.tenantID)
 
 	// Azure Application Id to be used with device code auth flow
 	d.applicationID = config["CNAB_AZURE_APP_ID"]
-	log.Debug("applicationID:", d.applicationID)
+	log.Debug("Application ID: ", d.applicationID)
 	appID := len(d.applicationID) > 0
 
 	// SPN and appId are mutually exclusive
@@ -158,7 +160,12 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 
 	// TenantId is required when client credentials or CNAB_AZURE_APP_ID is set
 	if (clientCreds || appID) && len(d.tenantID) == 0 {
-		return errors.New("CNAB_AZURE_TENANT_ID should be set when CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET or CNAB_AZURE_APP_ID are set")
+		if az.IsInCloudShell() {
+			d.tenantID = az.GetTenantIDFromCliProfile()
+		}
+		if len(d.tenantID) == 0 {
+			return errors.New("CNAB_AZURE_TENANT_ID should be set when CNAB_AZURE_CLIENT_ID and CNAB_AZURE_CLIENT_SECRET or CNAB_AZURE_APP_ID are set")
+		}
 	}
 
 	// TenantId should not be set if client creds or app id not set
@@ -171,13 +178,13 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	if len(d.subscriptionID) == 0 {
 		d.subscriptionID = az.GetSubscriptionIDFromCliProfile()
 	}
-	log.Debug("Subscription:", d.subscriptionID)
+	log.Debug("Subscription ID: ", d.subscriptionID)
 
 	// Check to see if an resource group name has been set, if not then a location must be set , if an resource group name is set and no location is used then the resource group must already exist and the location of he resource group will be used for the resources
 	d.aciRG = config["CNAB_AZURE_RESOURCE_GROUP"]
-	log.Debug("Resource Group:", d.aciRG)
+	log.Debug("Resource Group: ", d.aciRG)
 	d.aciLocation = strings.ToLower(strings.Replace(config["CNAB_AZURE_LOCATION"], " ", "", -1))
-	log.Debug("Location:", d.aciLocation)
+	log.Debug("Location: ", d.aciLocation)
 
 	if len(d.aciRG) == 0 && len(d.aciLocation) == 0 && az.IsInCloudShell() {
 		d.aciRG, d.aciLocation = az.TryGetRGandLocation()
@@ -189,8 +196,8 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	// If Resource group name is not set generate a unique name
 	d.createRG = len(d.aciRG) == 0
 	if d.createRG {
-		d.aciRG = uuid.New().String()
-		log.Debug("New Resource Group Name:", d.aciRG)
+		d.aciRG = fmt.Sprintf("cnab-azure-%s", uuid.New().String())
+		log.Debug("New Resource Group : ", d.aciRG)
 	}
 
 	// If aci driver name is not set generate a unique aci name
@@ -199,10 +206,10 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 		d.aciName = fmt.Sprintf("cnab-azure-%s", uuid.New().String())
 	}
 
-	log.Debug("Generated ACI Name:", d.aciName)
+	log.Debug("Generated ACI Name: ", d.aciName)
 	// Check that if MSI type is set it is either user or system, if it is user then there must also be a valid resource id set for the user MSI
 	if len(config["CNAB_AZURE_MSI_TYPE"]) > 0 {
-		log.Debug("MSI Type", config["CNAB_AZURE_MSI_TYPE"])
+		log.Debug("MSI Type: ", config["CNAB_AZURE_MSI_TYPE"])
 		switch strings.ToLower(config["CNAB_AZURE_MSI_TYPE"]) {
 		case "system":
 			d.msiType = "system"
@@ -210,7 +217,7 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 			if len(config["CNAB_AZURE_SYSTEM_MSI_ROLE"]) > 0 {
 				d.systemMSIRole = config["CNAB_AZURE_SYSTEM_MSI_ROLE"]
 			}
-			log.Debug("System MSI Role:", d.systemMSIRole)
+			log.Debug("System MSI Role: ", d.systemMSIRole)
 
 			d.systemMSIScope = ""
 			if len(config["CNAB_AZURE_SYSTEM_MSI_SCOPE"]) > 0 {
@@ -219,15 +226,15 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 				if err != nil {
 					return fmt.Errorf("CNAB_AZURE_SYSTEM_MSI_SCOPE environment variable parsing error: %v", err)
 				}
-				log.Debugf("System MSI Scope %s:", d.systemMSIScope)
+				log.Debugf("System MSI Scope: %s", d.systemMSIScope)
 			} else {
-				log.Debugf("System MSI Scope Not Set will default to RG %s Scope:", d.aciRG)
+				log.Debugf("System MSI Scope Not Set will Scope to RG: %s ", d.aciRG)
 			}
 
 		case "user":
 			d.msiType = "user"
 			d.userMSIResourceID = config["CNAB_AZURE_USER_MSI_RESOURCE_ID"]
-			log.Debug("User MSI Resource ID:", d.userMSIResourceID)
+			log.Debug("User MSI Resource ID: e", d.userMSIResourceID)
 
 			if len(d.userMSIResourceID) == 0 {
 				return errors.New("ACI Driver requires CNAB_AZURE_USER_MSI_RESOURCE_ID environment variable when CNAB_AZURE_MSI_TYPE is set to user")
@@ -251,7 +258,7 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 
 	// Propagation of Credentials enables the flow of Azure credentials from the ACI_DRIVER to the invocation image
 	d.propagateCredentials = len(config["CNAB_AZURE_PROPAGATE_CREDENTIALS"]) > 0 && strings.ToLower(config["CNAB_AZURE_PROPAGATE_CREDENTIALS"]) == "true"
-	log.Debug("Propagate Credentials:", d.propagateCredentials)
+	log.Debug("Propagate Credentials: ", d.propagateCredentials)
 
 	// Credentials to be used for container registry for the invocation image
 	d.imageRegistryUser = config["CNAB_AZURE_REGISTRY_USERNAME"]
@@ -296,7 +303,7 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 			return fmt.Errorf("value (%s) of CNAB_AZURE_STATE_MOUNT_POINT is not an absolute path", config["CNAB_AZURE_STATE_MOUNT_POINT"])
 		}
 		d.stateMountPoint = path.Clean(strings.TrimSpace(strings.TrimSuffix(config["CNAB_AZURE_STATE_MOUNT_POINT"], "/")))
-		log.Debugf("d.stateMountPoint is : %v", d.stateMountPoint)
+		log.Debugf("State Mount Point: %v", d.stateMountPoint)
 		if d.stateMountPoint == "." || d.stateMountPoint == "/" {
 			return errors.New("CNAB_AZURE_STATE_MOUNT_POINT should not be root path")
 		}
@@ -304,10 +311,8 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 		d.stateMountPoint = stateMountPoint
 	}
 
-	d.deleteOutputs = true
-	if len(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) > 0 && strings.ToLower(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) == "false" {
-		d.deleteOutputs = false
-	}
+	d.deleteOutputs = !(len(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) > 0 && strings.ToLower(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) == "false")
+	d.debugContainer = len(config["CNAB_AZURE_DEBUG_CONTAINER"]) > 0 && strings.ToLower(config["CNAB_AZURE_DEBUG_CONTAINER"]) == "true"
 
 	return nil
 }
@@ -402,7 +407,7 @@ func (d *aciDriver) deleteOutputsFromFileShare(op *driver.Operation, operationRe
 	}
 	cnabOutputPrefix := cnabOutputMountPoint + cnabOutputDirName
 	for _, fullOutputName := range op.Outputs {
-		log.Debugf("Deleting output %s", fullOutputName)
+		log.Debugf("Deleting output %s from fileshare", fullOutputName)
 		outputName := strings.TrimPrefix(fullOutputName, cnabOutputPrefix+"/")
 		fileName := fmt.Sprintf("%s/%s/%s", d.statePath, cnabOutputDirName, outputName)
 		_, err := afs.DeleteFileFromShare(fileName)
@@ -420,10 +425,10 @@ func (d *aciDriver) getOutputs(op *driver.Operation, operationResult *driver.Ope
 		}
 		cnabOutputPrefix := cnabOutputMountPoint + cnabOutputDirName
 		for _, fullOutputName := range op.Outputs {
-			log.Debugf("Processing output for %s", fullOutputName)
+			log.Debugf("Processing output for: %s", fullOutputName)
 			// Output might not apply to this action
 			if output := op.Bundle.Outputs[fullOutputName]; output.AppliesTo(op.Action) {
-				log.Debugf("Checking for output for %s", fullOutputName)
+				log.Debugf("Checking for output for: %s", fullOutputName)
 				outputName := strings.TrimPrefix(fullOutputName, cnabOutputPrefix+"/")
 				fileName := fmt.Sprintf("%s/%s/%s", d.statePath, cnabOutputDirName, outputName)
 				exists, err := afs.CheckIfFileExists(fileName)
@@ -431,7 +436,7 @@ func (d *aciDriver) getOutputs(op *driver.Operation, operationResult *driver.Ope
 					return *operationResult, fmt.Errorf("Error checking file exists %s from AzureFileShare: %v", fileName, err)
 				}
 				if !exists {
-					log.Debugf("File: %s does not exist", fileName)
+					log.Debugf("Output File: %s does not exist", fileName)
 					// Output may not exist cnab-go command driver checks for default values so no need to check here
 					continue
 				}
@@ -453,17 +458,18 @@ func (d *aciDriver) setAzureSubscriptionID() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if len(d.subscriptionID) != 0 {
-		log.Debug("Checking for Subscription ID:", d.subscriptionID)
+		log.Debugf("Checking if Subscription ID: %s exists", d.subscriptionID)
 		result, err := subscriptionsClient.Get(ctx, d.subscriptionID)
 		if err != nil {
 			if result.StatusCode == 404 {
-				return fmt.Errorf("Subscription Id: %s not found", d.subscriptionID)
+				return fmt.Errorf("Subscription ID: %s not found", d.subscriptionID)
 			}
 
 			return fmt.Errorf("Attempt to Get Subscription Failed: %v", err)
 		}
 
 	} else {
+		log.Debug("No Subscription ID set choosing first one available")
 		result, err := subscriptionsClient.ListComplete(ctx)
 		if err != nil {
 			return fmt.Errorf("Attempt to List Subscriptions Failed: %v", err)
@@ -477,10 +483,10 @@ func (d *aciDriver) setAzureSubscriptionID() error {
 		// Just choose the first subscription
 		if result.NotDone() {
 			subscriptionID := *result.Value().SubscriptionID
-			log.Debug("Setting Subscription to", subscriptionID)
+			log.Debug("Setting Subscription ID to: ", subscriptionID)
 			d.subscriptionID = subscriptionID
 		} else {
-			return errors.New("Cannot find a subscription")
+			return errors.New("Cannot find a subscription for account")
 		}
 
 	}
@@ -504,6 +510,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 		domain = reference.Domain(named)
 	}
 
+	// SPN details are for Azure registry only
 	if d.useSPForACR && !strings.HasSuffix(domain, "azurecr.io") {
 		return fmt.Errorf("Cannot use Service Principal as credentials for non Azure registry : %s", domain)
 	}
@@ -517,8 +524,9 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 			return fmt.Errorf("Checking for existing resource group %s failed with error: %v", d.aciRG, err)
 		}
 
+		// If no location was provided then use the location of the Resource Group
 		if len(d.aciLocation) == 0 {
-			log.Debug("Setting aci Location to RG Location:", *rg.Location)
+			log.Debug("Setting ACI Location to RG Location:", *rg.Location)
 			d.aciLocation = *rg.Location
 		}
 
@@ -543,7 +551,23 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 	}
 
 	if d.createRG {
-		log.Debug("Creating Resource Group")
+		// If in cloudshell check that RG can be created
+		// TODO update so that this check works outside cloudshell
+		if az.IsInCloudShell() {
+			scope := fmt.Sprintf("subscriptions/%s", d.subscriptionID)
+			log.Debug("Checking permission to create resource group at scope: ", scope)
+			if canCreateRG, err := az.CheckCanAccessResource("Microsoft.Resources/subscriptions/resourceGroups/write", scope); err != nil || !canCreateRG {
+				// TODO This check is producing false negatives (user with access is getting Not Allowed just log response for now)
+				if err != nil {
+					log.Debug(fmt.Sprintf("Failed checking access for RG write access at scope %s Error: %v", scope, err))
+					//return fmt.Errorf("Failed checking access for RG write access at scope %s Error: %v", scope, err)
+				}
+				log.Debug(fmt.Sprintf("You do not have permission to create resource groups in subscription %s, you can set a default subscription using az configure -d group=<rg name> or set the Resource Group name in environment variable CNAB_AZURE_RESOURCE_GROUP", d.subscriptionID))
+				//return fmt.Errorf("You do not have permission to create resource groups in subscription %s, you can set a default subscription using az configure -d group=<rg name> or set the Resource Group name in environment variable CNAB_AZURE_RESOURCE_GROUP", d.subscriptionID)
+			}
+		}
+
+		log.Debug("Creating Resource Group: ", d.aciRG)
 		_, err := groupsClient.CreateOrUpdate(
 			ctx,
 			d.aciRG,
@@ -556,7 +580,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 
 		defer func() {
 			if d.deleteACIResources {
-				log.Debug("Deleting Resource Group")
+				log.Debug("Deleting Resource Group: ", d.aciRG)
 				future, err := groupsClient.Delete(ctx, d.aciRG)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to execute delete resource group %s error: %v\n", d.aciRG, err)
@@ -574,6 +598,21 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 		}()
 	}
 
+	// Check if permission to create ACI and permission
+	if az.IsInCloudShell() {
+		scope := fmt.Sprintf("subscriptions/%s/resourceGroups/%s", d.subscriptionID, d.aciRG)
+		log.Debug("Checking permission to create ACI at scope: ", scope)
+		if canCreateCG, err := az.CheckCanAccessResource("Microsoft.ContainerInstance/containerGroups/write", scope); err != nil || !canCreateCG {
+			// TODO This check is producing false negatives (user with access is getting Not Allowed just log response for now)
+			if err != nil {
+				log.Debug(fmt.Sprintf("Failed checking access for Container Group Write access at scope %s Error: %v", scope, err))
+				//return fmt.Errorf("Failed checking access for Container Group Write access at scope %s Error: %v", scope, err)
+			}
+			log.Debug(fmt.Sprintf("You do not have permission to create container groups in resource group %s in subscription %s", d.aciRG, d.subscriptionID))
+			//return fmt.Errorf("You do not have permission to create container groups in resource group %s in subscription %s", d.aciRG, d.subscriptionID)
+		}
+	}
+
 	var mounts []containerinstance.VolumeMount
 	var volumes []containerinstance.Volume
 
@@ -581,6 +620,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 	// files are mounted into the container in a secrets volume and invocationImage Entry point is modified to process the files before run cmd is invoked
 
 	hasFiles := false
+	log.Debug("Bundle Has File Inputs:", hasFiles)
 	if len(op.Files) > 0 {
 
 		// TODO Check that the run cmd is "/cnab/app/run"
@@ -599,14 +639,12 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 		volumes = append(volumes, secretVolume)
 		i := 0
 		for k, v := range op.Files {
-			log.Debug("File", k, "Value", v)
+			log.Debug("Processing File Input: ", k)
 			secrets[fmt.Sprintf("path%d", i)] = to.StringPtr(base64.StdEncoding.EncodeToString([]byte(k)))
 			secrets[fmt.Sprintf("value%d", i)] = to.StringPtr(base64.StdEncoding.EncodeToString([]byte(v)))
 			i++
 		}
 	}
-
-	log.Debug("Bundle Has Files:", hasFiles)
 
 	// Create ACI Instance
 
@@ -630,7 +668,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 		for _, ev := range env {
 			if k == *ev.Name {
 				ev.SecureValue = to.StringPtr(strings.Replace(v, "'", "''", -1))
-				log.Debug("Updating Container Group Environment Variable: Name:", k, "to Value:", v)
+				log.Debug("Updating Container Group Environment Variable: Name: ", k)
 				continue
 			}
 
@@ -639,14 +677,14 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 			Name:        to.StringPtr(k),
 			SecureValue: to.StringPtr(strings.Replace(v, "'", "''", -1)),
 		})
-		log.Debug("Setting Container Group Environment Variable: Name:", k, "Value:", v)
+		log.Debug("Setting Container Group Environment Variable: Name: ", k)
 	}
 	var volume = containerinstance.Volume{}
 	var volumeMount = containerinstance.VolumeMount{}
 	if d.mountStateVolume {
 		d.statePath = fmt.Sprintf("%s/%s", strings.ToLower(op.Bundle.Name), strings.ToLower(op.Installation))
-		log.Debug("Bundle:", strings.ToLower(op.Bundle.Name), "Installation:", strings.ToLower(op.Installation))
 		statePath := fmt.Sprintf("%s/%s", d.stateMountPoint, d.statePath)
+		log.Debug("State Path: ", statePath)
 		env = append(env, containerinstance.EnvironmentVariable{
 			Name:  to.StringPtr("STATE_PATH"),
 			Value: to.StringPtr(statePath),
@@ -677,7 +715,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 	if d.deleteACIResources {
 		defer func() {
 			fmt.Println("Cleaning up Azure Resources created to execute Bundle")
-			log.Debug("Deleting Container Instance")
+			log.Debug("Deleting Container Instance ", d.aciName)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			containerGroupsClient := az.GetContainerGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
@@ -710,7 +748,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 	containerRunning := true
 	linesOutput := 0
 	for containerRunning {
-		log.Debug("Getting Container State")
+		log.Debug("Getting ACI State")
 		state, err := d.getContainerState(d.aciRG, d.aciName)
 		if err != nil {
 			return fmt.Errorf("Error getting container state :%v", err)
@@ -722,7 +760,7 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 				return fmt.Errorf("Error getting container logs :%v", err)
 			}
 
-			log.Debug("Sleeping")
+			log.Debug("Sleeping waiting for Container to complete")
 			fmt.Print("\033[1C\033[1D")
 			time.Sleep(5 * time.Second)
 		} else {
@@ -763,7 +801,7 @@ func (d *aciDriver) getAzureFileVolume() *containerinstance.AzureFileVolume {
 
 // This will only work if the logs don't get truncated because of size.
 func (d *aciDriver) getContainerLogs(ctx context.Context, aciRG string, aciName string, linesOutput int) (int, error) {
-	log.Debug("Getting Invocation Image Logs")
+	log.Debug("Getting Logs from Invocation Image")
 	containerClient := az.GetContainerClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
 	logs, err := containerClient.ListLogs(ctx, aciRG, aciName, aciName, nil)
 	if err != nil {
@@ -812,6 +850,22 @@ func (d *aciDriver) getContainerIdentity(ctx context.Context, aciRG string) (*id
 		identity, err := userAssignedIdentitiesClient.Get(ctx, d.msiResource.ResourceGroup, d.msiResource.ResourceName)
 		if err != nil {
 			return nil, fmt.Errorf("Error getting User Assigned Identity:%v  Error: %v", d.msiResource, err)
+		}
+
+		// Check if permission to use MSI
+
+		if az.IsInCloudShell() {
+			scope := fmt.Sprintf("subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", d.msiResource.SubscriptionID, d.msiResource.ResourceGroup, d.msiResource.Provider, d.msiResource.ResourceType, d.msiResource.ResourceName)
+			log.Debug("Checking permission to assign MSI at scope: ", scope)
+			if canAssignMSI, err := az.CheckCanAccessResource("Microsoft.ManagedIdentity/userAssignedIdentities/assign/action", scope); err != nil || !canAssignMSI {
+				// TODO This check is producing false negatives (user with access is getting Not Allowed just log response for now)
+				if err != nil {
+					log.Debug(fmt.Sprintf("Failed checking access for MSI Assign at scope %s Error: %v", scope, err))
+					//return nil, fmt.Errorf("Failed checking access for MSI Assign at scope %s Error: %v", scope, err)
+				}
+				log.Debug(fmt.Sprintf("You do not have permission to assign MSI %s", scope))
+				//return nil, fmt.Errorf("You do not have permission to assign MSI %s", scope)
+			}
 		}
 
 		return &identityDetails{
@@ -930,10 +984,10 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 	var scriptBuilder strings.Builder
 	var command []string
 
-	if hasFiles || d.hasOutputs {
+	if hasFiles || d.hasOutputs || d.debugContainer {
 		if hasFiles {
 			// Get the filenames and data  from the secret volume and place them where they are expected by the bundle
-			scriptBuilder.WriteString(fmt.Sprintf("cd %s;for f in $(ls path*);do v=$(cat value${f#path});file=$(cat ${f});mkdir -p $(dirname ${file});echo ${v} > ${file};done;cd -;", fileMountPoint))
+			scriptBuilder.WriteString(fmt.Sprintf("cd %s;for f in $(ls path*);do file=$(cat ${f});mkdir -p $(dirname ${file});cp value${f#path} ${file};done;cd -;", fileMountPoint))
 		}
 
 		if len(d.statePath) > 0 {
@@ -943,11 +997,15 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 
 		if d.hasOutputs {
 			outputsCmd := fmt.Sprintf("mkdir -p ${STATE_PATH}/%[2]s;ln -s ${STATE_PATH}/%[2]s %[1]s%[2]s;", cnabOutputMountPoint, cnabOutputDirName)
-			log.Debug("Ln Command", outputsCmd)
 			scriptBuilder.WriteString(outputsCmd)
 		}
+		// This is to allow attaching to the container for debug purposes
+		if d.debugContainer {
+			scriptBuilder.WriteString("tail -f /dev/null")
+		} else {
+			scriptBuilder.WriteString("/cnab/app/run")
+		}
 
-		scriptBuilder.WriteString("/cnab/app/run")
 		command = []string{"/bin/bash", "-e", "-c", scriptBuilder.String()}
 	}
 
@@ -1026,12 +1084,12 @@ func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 		return fmt.Errorf("Role Definition for Role %s not found for Scope:%s", role, scope)
 	}
 
-	log.Debug("RoleDefinitionId", roleDefinitionID)
+	log.Debug("Role Definition Id: ", roleDefinitionID)
 	// Wait for principal to be available
 	attempts := 5
 	var err error
 	for i := 0; i < attempts; i++ {
-		log.Debug("Creating RoleAssignment Attempt", i)
+		log.Debug("Creating RoleAssignment Attempt: ", i)
 		roleAssignmentsClient := az.GetRoleAssignmentClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
 		_, raerror := roleAssignmentsClient.Create(ctx, scope, uuid.New().String(), authorization.RoleAssignmentCreateParameters{
 			Properties: &authorization.RoleAssignmentProperties{
@@ -1041,7 +1099,7 @@ func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 		})
 		if raerror != nil {
 			err = fmt.Errorf("Error creating RoleAssignment Role:%s for Scope:%s Error: %v", role, scope, raerror)
-			log.Debug("Creating RoleAssignment Attempt:", i, "Error:", err)
+			log.Debug("Creating RoleAssignment Attempt: ", i, "Error: ", err)
 			time.Sleep(20 * time.Second)
 			continue
 		}
@@ -1107,7 +1165,7 @@ func (d *aciDriver) createCredentialEnvVars(env []containerinstance.EnvironmentV
 	name := "AZURE_OAUTH_TOKEN"
 	var token string
 	if d.loginInfo.LoginType == az.CloudShell || d.loginInfo.LoginType == az.DeviceCode {
-		log.Debug(fmt.Sprintf("Propagating OAuth Token from %v login", d.loginInfo.LoginType))
+		log.Debugf("Propagating OAuth Token from %v login", d.loginInfo.LoginType)
 		token = d.loginInfo.OAuthTokenProvider.OAuthToken()
 	}
 
@@ -1130,7 +1188,7 @@ func (d *aciDriver) createCredentialEnvVars(env []containerinstance.EnvironmentV
 		Name:        &name,
 		SecureValue: &token,
 	})
-	log.Debug("Setting Container Group Environment Variable: Name:", name, "Value:", token)
+	log.Debug("Setting Container Group Environment Variable: Name: ", name)
 
 	spnPropertyNames := map[string]string{
 		"clientID":     "AZURE_CLIENT_ID",
@@ -1144,7 +1202,7 @@ func (d *aciDriver) createCredentialEnvVars(env []containerinstance.EnvironmentV
 				Name:        &name,
 				SecureValue: &value,
 			})
-			log.Debug("Setting Container Group Environment Variable: Name:", v, "Value:", value)
+			log.Debug("Setting Container Group Environment Variable: Name: ", v)
 		}
 	}
 	return env, nil
@@ -1156,9 +1214,19 @@ func (d *aciDriver) getFieldValue(field string) string {
 }
 
 func imageWithDigest(img bundle.InvocationImage) string {
-	if img.Digest == "" {
+	// its not clear what should be in img.Image and img.Digest this tries to cover multiple scenarios
+	// see https://github.com/deislabs/cnab-go/issues/145 and https://github.com/deislabs/cnab-spec/issues/287
+	log.Debug("Image: ", img.Image)
+	// Hack in case image contains digest and/or digest and tag
+	if img.Digest == "" || strings.Contains(img.Image, "@sha256") {
+		imageParts := strings.Split(img.Image, ":")
+		// Image contains a tag and a digest
+		if len(imageParts) == 3 {
+			return imageParts[0] + ":" + imageParts[2]
+		}
 		return img.Image
 	}
+
 	//Workaround for issue in ACI Image Reference Parsing where it doesn't allow both a tag and a digest
 	return strings.Split(img.Image, ":")[0] + "@" + img.Digest
 }

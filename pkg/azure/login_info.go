@@ -119,7 +119,7 @@ func LoginToAzure(clientID string, clientSecret string, tenantID string, applica
 func GetCloudShellToken() (*adal.Token, error) {
 
 	MSIEndpoint := os.Getenv("MSI_ENDPOINT")
-	log.Debug("CloudShell MSI Endpoint", MSIEndpoint)
+	log.Debug("CloudShell MSI Endpoint: ", MSIEndpoint)
 	if len(MSIEndpoint) == 0 {
 		return nil, errors.New("MSI_ENDPOINT environment variable not set")
 	}
@@ -138,7 +138,7 @@ func GetCloudShellToken() (*adal.Token, error) {
 	query.Add("api-version", "2018-02-01")
 	query.Add("resource", "https://management.azure.com/")
 	req.URL.RawQuery = query.Encode()
-	log.Debug("Token Query", query.Encode())
+	log.Debug("Cloud Shell Token URI: ", req.RequestURI)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting CloudShell Token: %v", err)

@@ -1,13 +1,18 @@
 package azure
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
@@ -21,10 +26,33 @@ const (
 	azureCLIConfigFileName = "config"
 )
 
+type checkAccessResponse []accessResponse
+
+type accessResponse struct {
+	AccessDecision string `json:"accessDecision"`
+}
+type checkAccessRequest struct {
+	Subject subject  `json:"Subject"`
+	Actions []action `json:"Actions"`
+}
+type action struct {
+	ID string `json:"Id"`
+}
+type subject struct {
+	Attributes attributes `json:"Attributes"`
+}
+type attributes struct {
+	ObjectID string `json:"ObjectId"`
+}
+
 type cloudrive struct {
 	StorageAccountResourceID string `json:"storageAccountResourceId"`
 	FileShareName            string `json:"fileShareName"`
 	Size                     int    `json:"diskSizeInGB"`
+}
+
+type adtoken struct {
+	Oid string `json:"oid"`
 }
 
 // FileShareDetails contains details of the clouddrive FileShare
@@ -55,6 +83,7 @@ func getSubscriptionsfromCLIProfile() *[]cli.Subscription {
 		return &subscriptions
 	}
 
+	// Do not throw errors as just return an empty struct
 	profilePath, err := cli.ProfilePath()
 	if err != nil {
 		log.Debug("Failed to get cli ProfilePath: ", err)
@@ -134,6 +163,7 @@ func getRGAndLocationFromEnv() (rg string, location string) {
 }
 func getRGAndLocationFromConfig() (rg string, location string) {
 	path, err := getCLIConfig()
+	// Log errors and return empty string if cannot read from the az config
 	if err != nil {
 		log.Debug("failed to get cli config path:", err)
 		return
@@ -197,6 +227,7 @@ func GetCloudDriveResourceGroup() string {
 		return ""
 	}
 
+	// return empty string if there are any errors
 	clouddriveConfig, err := getCloudDriveConfig()
 	if err != nil {
 		log.Debug("Error getting clouddrive config: ", err)
@@ -234,5 +265,123 @@ func getCLIConfig() (string, error) {
 	if cfgDir := os.Getenv("AZURE_CONFIG_DIR"); cfgDir != "" {
 		return path.Join(cfgDir, azureCLIConfigFileName), nil
 	}
+
 	return homedir.Expand("~/.azure/" + azureCLIConfigFileName)
+}
+
+// CheckCanAccessResource checks to see if the user can create a specific
+func CheckCanAccessResource(actionID string, scope string) (bool, error) {
+	if !IsInCloudShell() {
+		return false, errors.New("Not Running in CloudShell")
+	}
+
+	oid, err := getOidFromToken()
+	if err != nil {
+		return false, fmt.Errorf("failed to get Oid: %v ", err)
+	}
+	accessCheck := checkAccessRequest{
+		Actions: []action{
+			{
+				ID: actionID,
+			},
+		},
+		Subject: subject{
+			Attributes: attributes{
+				ObjectID: oid,
+			},
+		},
+	}
+	payload, err := json.Marshal(accessCheck)
+	if err != nil {
+		return false, fmt.Errorf("failed to serialise checkaccess payload: %v ", err)
+	}
+	log.Debug("Check Access POST Body ", string(payload))
+	return makeCheckAccessRequest(payload, scope)
+}
+func getOidFromToken() (string, error) {
+	adalToken, err := GetCloudShellToken()
+	if err != nil {
+		return "", fmt.Errorf("failed to get CloudShell Token: %s", err)
+	}
+
+	bearerToken := strings.Split(adalToken.AccessToken, ".")[1]
+	if len(bearerToken) == 0 {
+		return "", fmt.Errorf("Failed to get bearer token from CloudShell Token: %v ", err)
+	}
+	token, err := base64.RawStdEncoding.DecodeString(bearerToken)
+	if err != nil {
+		return "", fmt.Errorf("Failed to decode Bearer Token: %v ", err)
+	}
+	adToken := adtoken{}
+	if err := json.Unmarshal(token, &adToken); err != nil {
+		return "", fmt.Errorf("failed to unmarshall CloudShell token: %v ", err)
+	}
+	return adToken.Oid, nil
+}
+func makeCheckAccessRequest(payload []byte, scope string) (bool, error) {
+
+	var err error
+	var response []byte
+	adalToken, err := GetCloudShellToken()
+	if err != nil {
+		return false, fmt.Errorf("Error Getting CloudShellToken: %v", err)
+	}
+retry:
+	for i := 1; i < 4; i++ {
+		timeout := time.Duration(time.Duration(i) * time.Second)
+		client := http.Client{
+			Timeout: timeout,
+		}
+		url := fmt.Sprintf("https://management.azure.com/%s/providers/Microsoft.Authorization/CheckAccess", scope)
+		log.Debug("Check Access URL: ", url)
+		var req *http.Request
+		req, err = http.NewRequest("POST", url, bytes.NewBuffer(payload))
+		if err != nil {
+			break retry
+		}
+
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", adalToken.AccessToken))
+		req.Header.Set("content-type", "application/json")
+		query := req.URL.Query()
+		query.Add("api-version", "2018-09-01-preview")
+		req.URL.RawQuery = query.Encode()
+		var resp *http.Response
+		resp, err = client.Do(req)
+		if err != nil {
+			break retry
+		}
+
+		var rawResp []byte
+		rawResp, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			break retry
+		}
+
+		defer resp.Body.Close()
+		response = rawResp
+		log.Debug("Check Access HTTP Status Code: ", resp.StatusCode)
+		switch resp.StatusCode {
+		case http.StatusOK:
+			break retry
+		case http.StatusForbidden:
+			// User does not have permission to call CheckAccess so just return true, the operation may still succeed
+			return true, nil
+		default:
+			log.Debug(fmt.Sprintf("Error checking access HTTP Status: '%d'. Response Body: %s", resp.StatusCode, string(rawResp)))
+			err = fmt.Errorf("Error checking access HTTP Status: '%d'. Response Body: %s", resp.StatusCode, string(rawResp))
+		}
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("Error Checking  Access: %v", err)
+	}
+
+	log.Debug(fmt.Sprintf("Check Access Response Body: %s", string(response)))
+	var checkaccessresponse checkAccessResponse
+	err = json.Unmarshal(response, &checkaccessresponse)
+	if err != nil {
+		return false, fmt.Errorf("Error Unmarshalling Access Response: %v", err)
+	}
+
+	return strings.ToLower(checkaccessresponse[0].AccessDecision) == "allowed", nil
 }
