@@ -1,6 +1,6 @@
 # Azure CNAB Driver
 
-[![Build Status](https://dev.azure.com/deislabs/cnab-azure-driver/_apis/build/status/cnab-azure-driver?branchName=master)](https://dev.azure.com/deislabs/cnab-azure-driver/_build/latest?definitionId=15&branchName=master)
+[![Build Status](https://dev.azure.com/deislabs/cnab-azure-driver/_apis/build/status/deislabs.cnab-azure-driver?branchName=master)](https://dev.azure.com/deislabs/cnab-azure-driver/_build/latest?definitionId=25&branchName=master)
 
 The Azure CNAB Driver enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible 
 
@@ -42,7 +42,7 @@ porter show test
 
 The environment variable `CNAB_AZURE_LOCATION` can be set to any region [where the ACI Service is available](https://azure.microsoft.com/en-us/global-infrastructure/services/?products=container-instances&regions=all), by default in CloudShell the driver will derive the location from the default location set in using `az configure -d location=<location>` otherwise it will use the users CloudShell location.
 
-In CloudShell the credentials that you are logged in with will be used to create the ACI Container Group to run the invocation image and it will pick the current default subscription (this can be set or checked using `az account`), a specific subscription can be chosen by setting the environment Variable `CNAB_AZURE_AZURE_SUBSCRIPTION_ID`to the subscription ID to be used. 
+In CloudShell the credentials that you are logged in with will be used to create the ACI Container Group to run the invocation image and it will pick the current default subscription (this can be set or checked using `az account`), a specific subscription can be chosen by setting the environment Variable `CNAB_AZURE_SUBSCRIPTION_ID`to the subscription ID to be used. 
 
 More details on alternative authentication approaches are specified [below](#authentication-to-azure). 
 
@@ -125,4 +125,4 @@ Some bundles create outputs, the driver captures these in an Azure File Share, t
 | CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY |  The Storage Key for the Azure State File Share |
 | CNAB_AZURE_STATE_PATH | The local path relative to the mount point where state can be stored - this is combined with the state mount point and set as environment variable `STATE_PATH` on the ACI instance and can be used by a bundle to persist filesystem data |
 | CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE | Bundle outputs are written to an Azure file share, setting this variable to false will cause the driver not to clean these up after the action is finished. |
-| CNAB_AZURE_DEBUG_CONTAINER | Setting this to true enables connection to the container instance to debug issues, it causes the command /cnab/app/run with tail -f /dev/null to be ru in the invocation image. |
+| CNAB_AZURE_DEBUG_CONTAINER | Setting this to true enables connection to the container instance to debug issues, it causes the command /cnab/app/run with tail -f /dev/null to be run in the invocation image. |
