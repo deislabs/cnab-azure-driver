@@ -30,7 +30,7 @@ fi
 if [ ! -f ~/.cnab-azure-driver/cnab-azure-driver ] && [ -z $(which cnab-azure-driver) ]
 then
     echo "Installing CNAB azure driver"
-    DOWNLOAD_LOCATION=$( curl -sL https://api.github.com/repos/simongdavies/cnab-azure-driver/releases/latest | jq '.assets[]|select(.name=="cnab-azure-linux-amd64").browser_download_url' -r)
+    DOWNLOAD_LOCATION=$( curl -sL https://api.github.com/repos/deislabs/cnab-azure-driver/releases/latest | jq '.assets[]|select(.name=="cnab-azure-linux-amd64").browser_download_url' -r)
     mkdir -p ${HOME}/.cnab-azure-driver
     curl -sSLo ${HOME}/.cnab-azure-driver/cnab-azure "${DOWNLOAD_LOCATION}"
     chmod +x ${HOME}/.cnab-azure-driver/cnab-azure
