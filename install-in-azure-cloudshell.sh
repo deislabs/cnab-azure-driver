@@ -16,7 +16,7 @@ then
     curl https://cdn.deislabs.io/porter/latest/install-linux.sh|/bin/bash
     echo "" >> "${HOME}/.bashrc"
     echo "# Updating Path to include porter" >> "${HOME}/.bashrc"
-    echo "export PATH=${HOME}/.porter:${PATH}" >> "${HOME}/.bashrc"
+    echo "export PATH=${HOME}/.porter:\${PATH}" >> "${HOME}/.bashrc"
     echo "# Finish Updating Path to include porter" >> "${HOME}/.bashrc"
     echo "" >> "${HOME}/.bashrc"
     echo ".bashrc updated added porter dir to path"
@@ -36,7 +36,7 @@ then
     chmod +x ${HOME}/.cnab-azure-driver/cnab-azure
     echo "" >> "${HOME}/.bashrc"
     echo "# Updating Path to include cnab-azure-driver" >> "${HOME}/.bashrc"
-    echo "export PATH=${HOME}/.cnab-azure-driver:${PATH}" >> "${HOME}/.bashrc"
+    echo "export PATH=${HOME}/.cnab-azure-driver:\${PATH}" >> "${HOME}/.bashrc"
     echo "# Finish Updating Path to include cnab-azure-driver" >> "${HOME}/.bashrc"
     echo "" >> "${HOME}/.bashrc"
     echo ".bashrc updated added cnab-azure-driver dir to path"
