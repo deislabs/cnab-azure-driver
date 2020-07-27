@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deislabs/cnab-go/bundle"
-	"github.com/deislabs/cnab-go/bundle/definition"
-	cnabdriver "github.com/deislabs/cnab-go/driver"
+	"github.com/cnabio/cnab-go/bundle"
+	"github.com/cnabio/cnab-go/bundle/definition"
+	cnabdriver "github.com/cnabio/cnab-go/driver"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/google/uuid"
@@ -145,7 +145,10 @@ func TestCanWriteOutputs(t *testing.T) {
 		Files: map[string]string{
 			"/cnab/app/image-map.json": "{}",
 		},
-		Outputs: []string{"/cnab/app/outputs/output1", "/cnab/app/outputs/output2"},
+		Outputs: map[string]string{
+			"output1": "/cnab/app/outputs/output1",
+			"output2": "/cnab/app/outputs/output2",
+		},
 	}
 
 	d, err := NewACIDriver("test-version")
@@ -376,7 +379,10 @@ func TestRunAzureTest(t *testing.T) {
 		Files: map[string]string{
 			"/cnab/app/image-map.json": "{}",
 		},
-		Outputs: []string{"/cnab/app/outputs/output1", "/cnab/app/outputs/output2"},
+		Outputs: map[string]string{
+			"output1": "/cnab/app/outputs/output1",
+			"output2": "/cnab/app/outputs/output2",
+		},
 	}
 	op.Installation = uuid.New().String()
 	d, err = NewACIDriver("test-version")

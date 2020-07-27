@@ -13,17 +13,15 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	cnabdriver "github.com/deislabs/cnab-go/driver"
+	cnabdriver "github.com/cnabio/cnab-go/driver"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/spf13/cobra"
 
+	"github.com/deislabs/cnab-azure-driver/pkg"
 	"github.com/deislabs/cnab-azure-driver/pkg/driver"
 )
 
-// Version is the current version of cnab-azure
-var Version string
 var handles bool
-var verbose = false
 var rootCmd = &cobra.Command{
 	Use:          "cnab-azure",
 	Short:        "cnab-azure is a cnab-go driver to execute CNAB actions",
@@ -36,7 +34,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the Azure driver version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("cnab-azure version:%v \n", Version)
+		fmt.Printf("cnab-azure %v", Version())
 	},
 }
 
@@ -67,7 +65,6 @@ func RunOperation() error {
 	if len(verboseSetting) > 0 && strings.ToLower(verboseSetting) == "true" {
 		multiWriter := io.MultiWriter(os.Stdout, writer)
 		log.SetOutput(multiWriter)
-		verbose = true
 	} else {
 		log.SetOutput(writer)
 	}
@@ -97,7 +94,7 @@ func RunOperation() error {
 
 	}
 
-	acidriver, err := driver.NewACIDriver(Version)
+	acidriver, err := driver.NewACIDriver(Version())
 	if err != nil {
 		return logError(fmt.Errorf("Error creating ACI Driver: %v", err))
 	}
@@ -111,6 +108,11 @@ func RunOperation() error {
 	return logError(WriteOutputs(outputDirName, opResult))
 }
 
+// Version returns the version string
+func Version() string {
+	return fmt.Sprintf("version:%v-%v", pkg.Version, pkg.Commit)
+}
+
 // WriteOutputs writes the outputs from an operation to the location expected by the Command Driver
 func WriteOutputs(outputDirName string, results cnabdriver.OperationResult) error {
 	if len(results.Outputs) == 0 {
@@ -122,8 +124,11 @@ func WriteOutputs(outputDirName string, results cnabdriver.OperationResult) erro
 		log.Debug("Processing Output Filename ", fileName)
 		dir, _ := path.Split(fileName)
 		log.Debug("Creating Output Directory ", dir)
-		os.MkdirAll(dir, 0744)
-		err := ioutil.WriteFile(fileName, []byte(item), 0744)
+		err := os.MkdirAll(dir, 0744)
+		if err != nil {
+			return fmt.Errorf("Failed to create directories: %s Error: %v", fileName, err)
+		}
+		err = ioutil.WriteFile(fileName, []byte(item), 0744)
 		if err != nil {
 			return fmt.Errorf("Failed to write output file: %s Error: %v", fileName, err)
 		}

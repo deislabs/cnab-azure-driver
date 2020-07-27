@@ -24,7 +24,7 @@ default: build
 .PHONY: build
 build:
 	mkdir -p $(BINDIR)
-	$(GO) build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(TARGET) $(PKG)/cmd/...
+	$(GO) build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(TARGET) ./cmd/...
 
 .PHONY: install
 install:
@@ -35,12 +35,12 @@ CX_ARCHS = amd64
 
 xbuild-all:
 ifeq ($(OS),Windows_NT)
-	powershell -executionPolicy bypass -NoLogo -NoProfile -File ./build/build-release.ps1 -oses '$(CX_OSES)' -arch  $(CX_ARCHS) -ldflags $(LDFLAGS) -filename $(FILENAME) -pkg $(PKG) -bindir $(BINDIR)
+	powershell -executionPolicy bypass -NoLogo -NoProfile -File ./build/build-release.ps1 -oses '$(CX_OSES)' -arch  $(CX_ARCHS) -ldflags $(LDFLAGS) -filename $(FILENAME) -bindir $(BINDIR)
 else
 	@for os in $(CX_OSES); do \
 		echo "building $$os"; \
 		for arch in $(CX_ARCHS); do \
-			GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(TARGET)-$$os-$$arch $(PKG)/cmd/...; \
+			GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(TARGET)-$$os-$$arch ./cmd/...; \
 		done; \
 		if [ $$os = 'windows' ]; then \
 			mv $(BINDIR)/$(TARGET)-$$os-$$arch $(BINDIR)/$(TARGET)-$$os-$$arch.exe; \

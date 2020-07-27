@@ -8,15 +8,25 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/deislabs/cnab-go/bundle"
-	cnabdriver "github.com/deislabs/cnab-go/driver"
+	"github.com/cnabio/cnab-go/bundle"
+	cnabdriver "github.com/cnabio/cnab-go/driver"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/deislabs/cnab-azure-driver/pkg"
 )
 
 func TestHandlesImageTypes(t *testing.T) {
 	actual := getOutput(t, HandlesImageTypes)
 	expected := fmt.Sprintf("%s,%s\n", cnabdriver.ImageTypeDocker, cnabdriver.ImageTypeOCI)
 	assert.Equalf(t, expected, actual, "Handles output error - Expected: %s Got: %s", expected, actual)
+}
+
+func TestVersion(t *testing.T) {
+	pkg.Commit = "commit"
+	pkg.Version = "version"
+	actual := getOutput(t, func() { fmt.Print(Version()) })
+	expected := fmt.Sprintf("version:%s-%s", pkg.Version, pkg.Commit)
+	assert.Equalf(t, expected, actual, "Version output error - Expected: %s Got: %s", expected, actual)
 }
 
 func TestInput(t *testing.T) {

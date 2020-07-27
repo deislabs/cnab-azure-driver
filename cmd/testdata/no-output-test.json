@@ -18,6 +18,5 @@
     "files": {
         "/cnab/app/image-map.json": "{}"
     },
-    "outputs":[
-    ]
+    "outputs":{}
 }

@@ -206,10 +206,14 @@ func GetCloudDriveDetails(userAgent string) (*FileShareDetails, error) {
 	}
 
 	authorizer := autorest.NewBearerAuthorizer(token)
-	client := GetStorageAccountsClient(resource.SubscriptionID, authorizer, userAgent)
+	client, err := GetStorageAccountsClient(resource.SubscriptionID, authorizer, userAgent)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting Storage Accounts Client: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	result, err := client.ListKeys(ctx, resource.ResourceGroup, resource.ResourceName)
+	result, err := client.ListKeys(ctx, resource.ResourceGroup, resource.ResourceName, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get strage account keys: %s", err)
 	}
