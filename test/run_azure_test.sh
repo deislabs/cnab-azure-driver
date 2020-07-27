@@ -7,4 +7,5 @@ export TEST_CNAB_AZURE_LOCATION=
 export TEST_CNAB_AZURE_STATE_FILESHARE=
 export TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_NAME=
 export TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY=
-go test -v -timeout 1h ./pkg/... -args -runazuretest -verbosedriveroutput
+export TEST_CNAB_AZURE_RUN_CLI_LOGIN_TEST=false
+GO111MODULE=on go test -v -timeout 1h ./pkg/... -args -runazuretest -verbosedriveroutput
