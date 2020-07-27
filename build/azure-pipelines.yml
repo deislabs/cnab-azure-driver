@@ -1,6 +1,6 @@
 trigger:
   branches:
-  include:
+    include:
     - refs/heads/main
 
 pr:
@@ -18,15 +18,15 @@ variables:
 steps:
   - task: GoTool@0
     inputs:
-    version: '$(GOVERSION)'
-    displayName: 'Install Go Version '$(GOVERSION)'
+      version: '$(GOVERSION)'
+    displayName: 'Install Go Version $(GOVERSION)'
 
   - script: |
-    make build -d 
-    workingDirectory: '$(System.DefaultWorkingDirectory)'
+      make build -d 
+      workingDirectory: '$(System.DefaultWorkingDirectory)'
     displayName: 'Build'
   
   - script: |
-    make test-all -d 
-    workingDirectory: '$(System.DefaultWorkingDirectory)'
-    displayName: 'Build'
+      make test-all -d 
+      workingDirectory: '$(System.DefaultWorkingDirectory)'
+    displayName: 'Test All'
