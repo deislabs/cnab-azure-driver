@@ -4,15 +4,15 @@
 # https://docs.microsoft.com/vsts/pipelines/languages/go
 
 trigger:
-- master
+- main
 
 pr:
  branches:
   include:
-  - master
+  - main
 
 pool:
-  vmImage: 'Ubuntu 16.04'
+  vmImage: 'Ubuntu 18.04'
 
 variables:
   GOBIN:  '$(GOPATH)/bin' # Go binaries path

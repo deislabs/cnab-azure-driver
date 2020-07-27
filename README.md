@@ -1,6 +1,6 @@
 # Azure CNAB Driver
 
-[![Build Status](https://dev.azure.com/deislabs/cnab-azure-driver/_apis/build/status/deislabs.cnab-azure-driver?branchName=master)](https://dev.azure.com/deislabs/cnab-azure-driver/_build/latest?definitionId=25&branchName=master)
+[![Build Status](https://dev.azure.com/deislabs/cnab-azure-driver/_apis/build/status/deislabs.cnab-azure-driver?branchName=main)](https://dev.azure.com/deislabs/cnab-azure-driver/_build/latest?definitionId=25&branchName=main)
 
 The Azure CNAB Driver enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible 
 
@@ -23,7 +23,7 @@ The easiest way to get started is to use [Azure Cloud Shell](https://shell.azure
 #### 1. Install the latest Porter and CNAB Azure Driver Releases.
 
 ```console
-curl https://raw.githubusercontent.com/deislabs/cnab-azure-driver/master/install-in-azure-cloudshell.sh |/bin/bash
+curl https://raw.githubusercontent.com/deislabs/cnab-azure-driver/main/install-in-azure-cloudshell.sh |/bin/bash
 source .bashrc
 ```
 This will install the latest porter and azure-cnab-driver releases and update `.bashrc` to include these in your path
