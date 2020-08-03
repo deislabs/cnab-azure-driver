@@ -18,8 +18,8 @@
     "files": {
         "/cnab/app/image-map.json": "{}"
     },
-    "outputs":[
-        "/cnab/app/outputs/output1",
-        "/cnab/app/outputs/output2"
-    ]
+    "outputs":{
+      "output1":"/cnab/app/outputs/output1",
+      "output2": "/cnab/app/outputs/output2"
+    }
 }

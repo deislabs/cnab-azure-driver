@@ -23,10 +23,16 @@ steps:
 
   - script: |
       make build -d 
-      workingDirectory: '$(System.DefaultWorkingDirectory)'
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
     displayName: 'Build'
   
   - script: |
       make test-all -d 
-      workingDirectory: '$(System.DefaultWorkingDirectory)'
+    env:
+      TEST_CNAB_AZURE_SUBSCRIPTION_ID: $(TEST.CNAB.AZURE.SUBSCRIPTION.ID)
+      TEST_CNAB_AZURE_TENANT_ID: $(TEST.CNAB.AZURE.TENANT.ID)
+      TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY: $(TEST.CNAB.AZURE.STATE.STORAGE.ACCOUNT.KEY)
+      TEST_CNAB_AZURE_CLIENT_SECRET: $(TEST.CNAB.AZURE.CLIENT.SECRET)
+      TEST_CNAB_AZURE_CLIENT_ID: $(TEST.CNAB.AZURE.CLIENT.ID)  
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
     displayName: 'Test All'

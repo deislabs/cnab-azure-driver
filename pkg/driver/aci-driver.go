@@ -14,8 +14,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/cli"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/deislabs/cnab-go/bundle"
-	"github.com/deislabs/cnab-go/driver"
+	"github.com/cnabio/cnab-go/bundle"
+	"github.com/cnabio/cnab-go/driver"
 	"github.com/docker/distribution/reference"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -401,7 +401,7 @@ func (d *aciDriver) deleteOutputsFromFileShare(op *driver.Operation, operationRe
 	fmt.Println("Deleting Outputs from Azure FileShare")
 	afs, err := az.NewFileShare(d.stateStorageAccountName, d.stateStorageAccountKey, d.stateFileShare)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Error creating AzureFileShare object to delete outputs: %v", err))
+		fmt.Printf("Error creating AzureFileShare object to delete outputs: %v\n", err)
 		return
 	}
 	cnabOutputPrefix := cnabOutputMountPoint + cnabOutputDirName
@@ -411,7 +411,7 @@ func (d *aciDriver) deleteOutputsFromFileShare(op *driver.Operation, operationRe
 		fileName := fmt.Sprintf("%s/%s/%s", d.statePath, cnabOutputDirName, outputName)
 		_, err := afs.DeleteFileFromShare(fileName)
 		if err != nil {
-			fmt.Println(fmt.Sprintf("Error deleting output %s from fileshare:%v", fullOutputName, err))
+			fmt.Printf("Error deleting output %s from fileshare:%v\n", fullOutputName, err)
 		}
 	}
 }
@@ -453,7 +453,11 @@ func (d *aciDriver) getOutputs(op *driver.Operation, operationResult *driver.Ope
 }
 
 func (d *aciDriver) setAzureSubscriptionID() error {
-	subscriptionsClient := az.GetSubscriptionsClient(d.loginInfo.Authorizer, d.userAgent)
+	subscriptionsClient, err := az.GetSubscriptionsClient(d.loginInfo.Authorizer, d.userAgent)
+	if err != nil {
+		return fmt.Errorf("Error getting Subscription Client: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if len(d.subscriptionID) != 0 {
@@ -516,7 +520,11 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	groupsClient := az.GetGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	groupsClient, err := az.GetGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	if err != nil {
+		return fmt.Errorf("Error getting Groups Client Client: %v", err)
+	}
+
 	if !d.createRG {
 		rg, err := groupsClient.Get(ctx, d.aciRG)
 		if err != nil {
@@ -533,7 +541,11 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 
 	// Check that location supports ACI
 
-	providersClient := az.GetProvidersClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	providersClient, err := az.GetProvidersClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	if err != nil {
+		return fmt.Errorf("Error getting Providers Accounts Client: %v", err)
+	}
+
 	provider, err := providersClient.Get(ctx, "Microsoft.ContainerInstance", "")
 	if err != nil {
 		return fmt.Errorf("Error getting provider details for ACI: %v", err)
@@ -717,8 +729,12 @@ func (d *aciDriver) runInvocationImageUsingACI(op *driver.Operation) error {
 			log.Debug("Deleting Container Instance ", d.aciName)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			containerGroupsClient := az.GetContainerGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
-			_, err := containerGroupsClient.Delete(ctx, d.aciRG, d.aciName)
+			containerGroupsClient, err := az.GetContainerGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error getting Container Groups Client: %v\n", err)
+			}
+
+			_, err = containerGroupsClient.Delete(ctx, d.aciRG, d.aciName)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to delete container error: %v\n", err)
 			}
@@ -801,7 +817,11 @@ func (d *aciDriver) getAzureFileVolume() *containerinstance.AzureFileVolume {
 // This will only work if the logs don't get truncated because of size.
 func (d *aciDriver) getContainerLogs(ctx context.Context, aciRG string, aciName string, linesOutput int) (int, error) {
 	log.Debug("Getting Logs from Invocation Image")
-	containerClient := az.GetContainerClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	containerClient, err := az.GetContainerClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	if err != nil {
+		return 0, fmt.Errorf("Error getting Container Client: %v", err)
+	}
+
 	logs, err := containerClient.ListLogs(ctx, aciRG, aciName, aciName, nil)
 	if err != nil {
 		return 0, fmt.Errorf("Error getting container logs :%v", err)
@@ -845,7 +865,11 @@ func (d *aciDriver) getContainerIdentity(ctx context.Context, aciRG string) (*id
 
 	// User MSI
 	if d.msiType == "user" {
-		userAssignedIdentitiesClient := az.GetUserAssignedIdentitiesClient(d.msiResource.SubscriptionID, d.loginInfo.Authorizer, d.userAgent)
+		userAssignedIdentitiesClient, err := az.GetUserAssignedIdentitiesClient(d.msiResource.SubscriptionID, d.loginInfo.Authorizer, d.userAgent)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting User Assigned Identities Client: %v", err)
+		}
+
 		identity, err := userAssignedIdentitiesClient.Get(ctx, d.msiResource.ResourceGroup, d.msiResource.ResourceName)
 		if err != nil {
 			return nil, fmt.Errorf("Error getting User Assigned Identity:%v  Error: %v", d.msiResource, err)
@@ -887,7 +911,11 @@ func (d *aciDriver) getContainerIdentity(ctx context.Context, aciRG string) (*id
 func (d *aciDriver) getContainerState(aciRG string, aciName string) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	containerGroupsClient := az.GetContainerGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	containerGroupsClient, err := az.GetContainerGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	if err != nil {
+		return "", fmt.Errorf("Error getting Container Groups Client: %v", err)
+	}
+
 	resp, err := containerGroupsClient.Get(ctx, aciRG, aciName)
 	if err != nil {
 		return "", err
@@ -908,7 +936,11 @@ func locationIsAvailable(location string, locations []string) bool {
 }
 
 func (d *aciDriver) createContainerGroup(aciName string, aciRG string, containerGroup containerinstance.ContainerGroup) (containerinstance.ContainerGroup, error) {
-	containerGroupsClient := az.GetContainerGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	containerGroupsClient, err := az.GetContainerGroupsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	if err != nil {
+		return containerinstance.ContainerGroup{}, fmt.Errorf("Error getting Container Groups Client: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	future, err := containerGroupsClient.CreateOrUpdate(ctx, aciRG, aciName, containerGroup)
@@ -921,7 +953,7 @@ func (d *aciDriver) createContainerGroup(aciName string, aciRG string, container
 		return containerinstance.ContainerGroup{}, fmt.Errorf("Error Waiting for Container Group creation: %v", err)
 	}
 
-	return future.Result(containerGroupsClient)
+	return future.Result(*containerGroupsClient)
 }
 
 func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG string, image string, env []containerinstance.EnvironmentVariable, identity identityDetails, mounts *[]containerinstance.VolumeMount, volumes *[]containerinstance.Volume, hasFiles bool, domain string) (*containerinstance.ContainerGroup, error) {
@@ -990,7 +1022,7 @@ func (d *aciDriver) createInstance(aciName string, aciLocation string, aciRG str
 		}
 
 		if len(d.statePath) > 0 {
-			statePathCmd := fmt.Sprintf("mkdir -p ${STATE_PATH};")
+			statePathCmd := "mkdir -p ${STATE_PATH};"
 			scriptBuilder.WriteString(statePathCmd)
 		}
 
@@ -1065,7 +1097,10 @@ func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 	log.Debug("Setting up System MSI Scope ", scope, "Role ", role)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	roleDefinitionsClient := az.GetRoleDefinitionsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	roleDefinitionsClient, err := az.GetRoleDefinitionsClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+	if err != nil {
+		return fmt.Errorf("Error getting RoleDefinitions Client: %v", err)
+	}
 	roleDefinitionID := ""
 	for roleDefinitions, err := roleDefinitionsClient.ListComplete(ctx, scope, ""); roleDefinitions.NotDone(); err = roleDefinitions.NextWithContext(ctx) {
 		if err != nil {
@@ -1086,11 +1121,14 @@ func (d *aciDriver) setUpSystemMSIRBAC(principalID *string, scope string, role s
 	log.Debug("Role Definition Id: ", roleDefinitionID)
 	// Wait for principal to be available
 	attempts := 5
-	var err error
 	for i := 0; i < attempts; i++ {
 		log.Debug("Creating RoleAssignment Attempt: ", i)
-		roleAssignmentsClient := az.GetRoleAssignmentClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
-		_, raerror := roleAssignmentsClient.Create(ctx, scope, uuid.New().String(), authorization.RoleAssignmentCreateParameters{
+		roleAssignmentsClient, raerror := az.GetRoleAssignmentClient(d.subscriptionID, d.loginInfo.Authorizer, d.userAgent)
+		if raerror != nil {
+			log.Debug("Failed to Get Role Assignment Client Error: ", err)
+		}
+
+		_, raerror = roleAssignmentsClient.Create(ctx, scope, uuid.New().String(), authorization.RoleAssignmentCreateParameters{
 			Properties: &authorization.RoleAssignmentProperties{
 				RoleDefinitionID: &roleDefinitionID,
 				PrincipalID:      principalID,

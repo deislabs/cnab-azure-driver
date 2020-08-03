@@ -11,73 +11,99 @@ import (
 )
 
 // GetSubscriptionsClient gets a Subscriptions Management Client
-func GetSubscriptionsClient(authorizer autorest.Authorizer, userAgent string) subscriptions.Client {
+func GetSubscriptionsClient(authorizer autorest.Authorizer, userAgent string) (*subscriptions.Client, error) {
 	subscriptionClient := subscriptions.NewClient()
-	subscriptionClient.Authorizer = authorizer
-	subscriptionClient.AddToUserAgent(userAgent)
-	return subscriptionClient
+	if err := setupClient(&subscriptionClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &subscriptionClient, nil
 }
 
 // GetRoleDefinitionsClient gets a RoleDefinitions Management Client
-func GetRoleDefinitionsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) authorization.RoleDefinitionsClient {
+func GetRoleDefinitionsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) (*authorization.RoleDefinitionsClient, error) {
 	roleDefinitionsClient := authorization.NewRoleDefinitionsClient(subscriptionID)
-	roleDefinitionsClient.Authorizer = authorizer
-	roleDefinitionsClient.AddToUserAgent(userAgent)
-	return roleDefinitionsClient
+	if err := setupClient(&roleDefinitionsClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &roleDefinitionsClient, nil
 }
 
 // GetRoleAssignmentClient gets a RoleAssignment Management Client
-func GetRoleAssignmentClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) authorization.RoleAssignmentsClient {
+func GetRoleAssignmentClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) (*authorization.RoleAssignmentsClient, error) {
 	roleAssignmentsClient := authorization.NewRoleAssignmentsClient(subscriptionID)
-	roleAssignmentsClient.Authorizer = authorizer
-	roleAssignmentsClient.AddToUserAgent(userAgent)
-	return roleAssignmentsClient
+	if err := setupClient(&roleAssignmentsClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &roleAssignmentsClient, nil
 }
 
 // GetUserAssignedIdentitiesClient gets a UserAssignedIdentities Management Client
-func GetUserAssignedIdentitiesClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) msi.UserAssignedIdentitiesClient {
+func GetUserAssignedIdentitiesClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) (*msi.UserAssignedIdentitiesClient, error) {
 	userAssignedIdentitiesClient := msi.NewUserAssignedIdentitiesClient(subscriptionID)
-	userAssignedIdentitiesClient.Authorizer = authorizer
-	userAssignedIdentitiesClient.AddToUserAgent(userAgent)
-	return userAssignedIdentitiesClient
+	if err := setupClient(&userAssignedIdentitiesClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &userAssignedIdentitiesClient, nil
 }
 
 // GetContainerGroupsClient gets a ContainerGroups Management Client
-func GetContainerGroupsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) containerinstance.ContainerGroupsClient {
+func GetContainerGroupsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) (*containerinstance.ContainerGroupsClient, error) {
 	containerGroupsClient := containerinstance.NewContainerGroupsClient(subscriptionID)
-	containerGroupsClient.Authorizer = authorizer
-	containerGroupsClient.AddToUserAgent(userAgent)
-	return containerGroupsClient
+	if err := setupClient(&containerGroupsClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &containerGroupsClient, nil
 }
 
 // GetContainerClient gets a Container Management Client
-func GetContainerClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) containerinstance.ContainerClient {
+func GetContainerClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) (*containerinstance.ContainerClient, error) {
 	containerClient := containerinstance.NewContainerClient(subscriptionID)
-	containerClient.Authorizer = authorizer
-	containerClient.AddToUserAgent(userAgent)
-	return containerClient
+	if err := setupClient(&containerClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &containerClient, nil
 }
 
 // GetGroupsClient gets a Resource Group Management Client
-func GetGroupsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) resources.GroupsClient {
+func GetGroupsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) (*resources.GroupsClient, error) {
 	groupsClient := resources.NewGroupsClient(subscriptionID)
-	groupsClient.Authorizer = authorizer
-	groupsClient.AddToUserAgent(userAgent)
-	return groupsClient
+	if err := setupClient(&groupsClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &groupsClient, nil
 }
 
 // GetProvidersClient gets a Providers Management Client
-func GetProvidersClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) resources.ProvidersClient {
+func GetProvidersClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) (*resources.ProvidersClient, error) {
 	providersClient := resources.NewProvidersClient(subscriptionID)
-	providersClient.Authorizer = authorizer
-	providersClient.AddToUserAgent(userAgent)
-	return providersClient
+	if err := setupClient(&providersClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &providersClient, nil
 }
 
 // GetStorageAccountsClient gets a Providers Management Client
-func GetStorageAccountsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) storage.AccountsClient {
+func GetStorageAccountsClient(subscriptionID string, authorizer autorest.Authorizer, userAgent string) (*storage.AccountsClient, error) {
 	accountsClient := storage.NewAccountsClient(subscriptionID)
-	accountsClient.Authorizer = authorizer
-	accountsClient.AddToUserAgent(userAgent)
-	return accountsClient
+	if err := setupClient(&accountsClient.BaseClient.Client, userAgent, authorizer); err != nil {
+		return nil, err
+	}
+
+	return &accountsClient, nil
+}
+
+func setupClient(client *autorest.Client, userAgent string, authorizer autorest.Authorizer) error {
+	client.Authorizer = authorizer
+	if err := client.AddToUserAgent(userAgent); err != nil {
+		return err
+	}
+	return nil
 }
