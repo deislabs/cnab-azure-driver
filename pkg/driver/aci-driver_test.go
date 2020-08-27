@@ -380,8 +380,8 @@ func TestRunAzureTest(t *testing.T) {
 			"/cnab/app/image-map.json": "{}",
 		},
 		Outputs: map[string]string{
-			"output1": "/cnab/app/outputs/output1",
-			"output2": "/cnab/app/outputs/output2",
+			"/cnab/app/outputs/output1": "output1",
+			"/cnab/app/outputs/output2": "output2",
 		},
 	}
 	op.Installation = uuid.New().String()

@@ -423,7 +423,7 @@ func (d *aciDriver) getOutputs(op *driver.Operation, operationResult *driver.Ope
 			return *operationResult, fmt.Errorf("Error creating AzureFileShare structure: %v", err)
 		}
 		cnabOutputPrefix := cnabOutputMountPoint + cnabOutputDirName
-		for _, fullOutputName := range op.Outputs {
+		for outputPath, fullOutputName := range op.Outputs {
 			log.Debugf("Processing output for: %s", fullOutputName)
 			// Output might not apply to this action
 			if output := op.Bundle.Outputs[fullOutputName]; output.AppliesTo(op.Action) {
@@ -444,7 +444,7 @@ func (d *aciDriver) getOutputs(op *driver.Operation, operationResult *driver.Ope
 				if err != nil {
 					return *operationResult, fmt.Errorf("Error reading output %s from AzureFileShare: %v", fileName, err)
 				}
-				operationResult.Outputs[fullOutputName] = content
+				operationResult.Outputs[outputPath] = content
 			}
 		}
 	}
