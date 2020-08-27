@@ -50,6 +50,7 @@ func runRootCmd(cmd *cobra.Command, args []string) error {
 
 // RunOperation a bundle operation using ACI Driver
 func RunOperation() error {
+	log.SetReportCaller(true)
 	fileName, err := getLogFileName()
 	if err != nil {
 		return fmt.Errorf("Failed to get log filename: %v", err)
@@ -128,6 +129,7 @@ func WriteOutputs(outputDirName string, results cnabdriver.OperationResult) erro
 		if err != nil {
 			return fmt.Errorf("Failed to create directories: %s Error: %v", fileName, err)
 		}
+		log.Debug("Creating Output File ", fileName)
 		err = ioutil.WriteFile(fileName, []byte(item), 0744)
 		if err != nil {
 			return fmt.Errorf("Failed to write output file: %s Error: %v", fileName, err)
