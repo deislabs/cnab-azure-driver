@@ -30,5 +30,6 @@ steps:
       make test-all -d 
     env:
       TEST_CNAB_AZURE_CLIENT_SECRET: $(TEST.CNAB.AZURE.CLIENT.SECRET) 
+      TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY: $(TEST.CNAB.AZURE.STATE.STORAGE.ACCOUNT.KEY)
     workingDirectory: '$(System.DefaultWorkingDirectory)'
     displayName: 'Test All'
