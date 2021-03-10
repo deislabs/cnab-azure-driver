@@ -1,12 +1,9 @@
-trigger:
-  branches:
-    include:
-    - refs/heads/main
-
 pr:
  branches:
   include:
   - main
+
+trigger: none
 
 pool:
   vmImage: 'Ubuntu 18.04'
@@ -16,20 +13,4 @@ variables:
   System.Debug: true
 
 steps:
-  - task: GoTool@0
-    inputs:
-      version: '$(GOVERSION)'
-    displayName: 'Install Go Version $(GOVERSION)'
-
-  - script: |
-      make build -d 
-    workingDirectory: '$(System.DefaultWorkingDirectory)'
-    displayName: 'Build'
-  
-  - script: |
-      make test-all -d 
-    env:
-      TEST_CNAB_AZURE_CLIENT_SECRET: $(TEST.CNAB.AZURE.CLIENT.SECRET) 
-      TEST_CNAB_AZURE_STATE_STORAGE_ACCOUNT_KEY: $(TEST.CNAB.AZURE.STATE.STORAGE.ACCOUNT.KEY)
-    workingDirectory: '$(System.DefaultWorkingDirectory)'
-    displayName: 'Test All'
+  - template: build-and-test.yml

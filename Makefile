@@ -57,7 +57,7 @@ test:
 	$(GO) test $(TESTFLAGS) ./...
 
 test-in-azure:
-	$(GO) test  $(TESTFLAGS) -timeout 15m ./pkg/... -args -runazuretest -verbosedriveroutput
+	$(GO) test  $(TESTFLAGS) -timeout 30m ./pkg/... -args -runazuretest -verbosedriveroutput
 
 test-in-azure-local:
 ifeq ($(OS),Windows_NT)
