@@ -22,7 +22,7 @@ steps:
 
   - task: GitHubRelease@0
     inputs:
-      gitHubConnection: deisLabs
+      gitHubConnection: deislabs-release
       repositoryName: '$(Build.Repository.Name)' 
       action: 'create' 
       tagSource: 'auto'
