@@ -33,7 +33,7 @@ install:
 CX_OSES  = linux windows darwin
 CX_ARCHS = amd64
 
-xbuild-all:
+xbuild-all: clean
 ifeq ($(OS),Windows_NT)
 	powershell -executionPolicy bypass -NoLogo -NoProfile -File ./build/build-release.ps1 -oses '$(CX_OSES)' -arch  $(CX_ARCHS) -ldflags $(LDFLAGS) -filename $(FILENAME) -bindir $(BINDIR)
 else
@@ -84,3 +84,6 @@ endif
 
 goimports: bootstrap
 	find . -name "*.go" | fgrep -v vendor/ | xargs goimports -w -local $(PKG)
+
+clean:
+	-rm -fr bin/
