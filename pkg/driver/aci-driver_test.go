@@ -400,6 +400,96 @@ func TestRunAzureTest(t *testing.T) {
 	}
 }
 
+func TestValidateMSIScope(t *testing.T) {
+	testcases := []struct {
+		name        string
+		scope       string
+		expectError bool
+	}{
+		{
+			name:        "valid subscription scope",
+			scope:       "/subscriptions/f1fc7a2d-ce60-43ea-b6af-808d7896eba8",
+			expectError: false,
+		},
+		{
+			name:        "valid resource group scope",
+			scope:       "/subscriptions/28fb4867-4cef-43ed-9637-b678cd6b2ce3/resourceGroups/myvalidrg",
+			expectError: false,
+		},
+		{
+			name:        "valid resource scope",
+			scope:       "/subscriptions/995c6481-7ddc-4dac-afd4-33545d96cf29/resourceGroups/myvalidrg/providers/Microsoft.Web/serverFarms/myvalidweb",
+			expectError: false,
+		},
+		{
+			name:        "valid resource group scope containing period",
+			scope:       "/subscriptions/96f5b6e2-d2a8-4bdd-9705-ee9b5c8ca44e/resourceGroups/my.valid.rg",
+			expectError: false,
+		},
+		{
+			name:        "invalid subscription scope with missing leading slash",
+			scope:       "subscriptions/995c6481-7ddc-4dac-afd4-33545d96cf29",
+			expectError: true,
+		},
+		{
+			name:        "invalid subscription scope with trailing slash",
+			scope:       "/subscriptions/995c6481-7ddc-4dac-afd4-33545d96cf29/",
+			expectError: true,
+		},
+		{
+			name:        "invalid subscription scope with none guid subscription id",
+			scope:       "/subscriptions/mysubscriptionid",
+			expectError: true,
+		},
+		{
+			name:        "invalid subscription scope with wrong casing",
+			scope:       "/Subscriptions/40690205-8c01-4798-8788-fd132af03032",
+			expectError: true,
+		},
+		{
+			name:        "invalid subscription scope with wrong guid length",
+			scope:       "/subscriptions/3a4a5acf-4f1c-4dff-92e8-df61a5fcca",
+			expectError: true,
+		},
+		{
+			name:        "invalid subscription scope with wrong guid format",
+			scope:       "/subscriptions/{880f0f9e-39a4-4092-ba31-c826e42534c0}",
+			expectError: true,
+		},
+		{
+			name:        "invalid resource group scope with trailing period",
+			scope:       "/subscriptions/28fb4867-4cef-43ed-9637-b678cd6b2ce3/resourceGroups/myinvalidrg.",
+			expectError: true,
+		},
+		{
+			name:        "invalid resource group scope wrong casing",
+			scope:       "/subscriptions/55e3c99a-5225-40d4-b117-80b30b2847e8/ResourceGroups/myinvalidrg",
+			expectError: true,
+		},
+		{
+			name:        "invalid resource group scope with extra slash",
+			scope:       "/subscriptions/adc8cb68-a92d-4e01-8d8f-b117b3571ef2/ResourceGroups/dev/myinvalidrg",
+			expectError: true,
+		},
+		{
+			name:        "invalid resource group scope with trailing slash",
+			scope:       "/subscriptions/f4390b3c-4184-4cf7-9454-5e273adc6d2b/ResourceGroups/myinvalidrg/",
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateMSIScope(tc.scope)
+			if tc.expectError {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
+
 func getOutputs(results cnabdriver.OperationResult) (outputs []string) {
 	for _, item := range results.Outputs {
 		outputs = append(outputs, item)
