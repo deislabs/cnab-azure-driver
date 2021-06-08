@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"reflect"
+	"regexp"
 
 	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
 	"github.com/Azure/azure-sdk-for-go/services/containerinstance/mgmt/2018-10-01/containerinstance"
@@ -14,6 +15,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/cli"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/beevik/guid"
 	"github.com/cnabio/cnab-go/bundle"
 	"github.com/cnabio/cnab-go/driver"
 	"github.com/docker/distribution/reference"
@@ -221,7 +223,7 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 			d.systemMSIScope = ""
 			if len(config["CNAB_AZURE_SYSTEM_MSI_SCOPE"]) > 0 {
 				d.systemMSIScope = config["CNAB_AZURE_SYSTEM_MSI_SCOPE"]
-				_, err := azure.ParseResourceID(d.systemMSIScope)
+				err := validateMSIScope(d.systemMSIScope)
 				if err != nil {
 					return fmt.Errorf("CNAB_AZURE_SYSTEM_MSI_SCOPE environment variable parsing error: %v", err)
 				}
@@ -313,6 +315,38 @@ func (d *aciDriver) processConfiguration(config map[string]string) error {
 	d.deleteOutputs = !(len(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) > 0 && strings.ToLower(config["CNAB_AZURE_DELETE_OUTPUTS_FROM_FILESHARE"]) == "false")
 	d.debugContainer = len(config["CNAB_AZURE_DEBUG_CONTAINER"]) > 0 && strings.ToLower(config["CNAB_AZURE_DEBUG_CONTAINER"]) == "true"
 
+	return nil
+}
+
+// Validate a provided MSI scope matches one of the supported formats:
+// * /subscriptions/<subscriptionID>
+// * /subscriptions/<subscriptionID>/resourceGroups/<resourceGroupName>
+// * /subscriptions/<subscriptionID>/resourceGroups/<resourceGroupName>/providers/...
+func validateMSIScope(scope string) error {
+	parts := strings.Split(scope, "/") // Leading / adds an empty part
+	if len(parts) < 3 {
+		return errors.New("invalid msi scope, scope must start with /subscriptions/<subscriptionID>")
+	}
+	subID := parts[2]
+	if _, err := guid.ParseString(subID); err != nil {
+		return fmt.Errorf("invalid msi scope, %w", err)
+	}
+
+	matchSubScope, _ := regexp.MatchString("^/subscriptions/[a-z0-9-]{36}$", scope)
+	if matchSubScope && len(parts) == 3 {
+		return nil
+	}
+	matchGroupScope, _ := regexp.MatchString("^/subscriptions/[a-z0-9-]{36}/resourceGroups/[-\\w\\._\\(\\)]+$", scope)
+	if matchGroupScope && len(parts) == 5 {
+		lastChar := scope[len(scope)-1:]
+		if lastChar == "." {
+			return errors.New("invalid msi scope, resource group name cannot end in a '.' character")
+		}
+		return nil
+	}
+	if _, err := azure.ParseResourceID(scope); err != nil {
+		return fmt.Errorf("invalid msi scope, %w", err)
+	}
 	return nil
 }
 
