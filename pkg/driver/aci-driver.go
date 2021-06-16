@@ -15,7 +15,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/cli"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/beevik/guid"
 	"github.com/cnabio/cnab-go/bundle"
 	"github.com/cnabio/cnab-go/driver"
 	"github.com/docker/distribution/reference"
@@ -341,7 +340,7 @@ func validateMSIScope(scope string) error {
 
 	// Azure subscription ids should be represented as 32 bit guids.
 	subID := parts[2]
-	if _, err := guid.ParseString(subID); err != nil {
+	if _, err := uuid.Parse(subID); err != nil {
 		return fmt.Errorf("invalid msi scope, %w", err)
 	}
 
