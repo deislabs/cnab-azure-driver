@@ -53,6 +53,7 @@ type cloudrive struct {
 
 type adtoken struct {
 	Oid string `json:"oid"`
+	Aud string `json:"aud"`
 }
 
 // FileShareDetails contains details of the clouddrive FileShare
@@ -322,6 +323,26 @@ func getOidFromToken() (string, error) {
 	}
 	return adToken.Oid, nil
 }
+func getAudFromToken() (string, error) {
+	adalToken, err := GetCloudShellToken()
+	if err != nil {
+		return "", fmt.Errorf("failed to get CloudShell Token: %s", err)
+	}
+
+	bearerToken := strings.Split(adalToken.AccessToken, ".")[1]
+	if len(bearerToken) == 0 {
+		return "", fmt.Errorf("Failed to get bearer token from CloudShell Token: %v ", err)
+	}
+	token, err := base64.RawStdEncoding.DecodeString(bearerToken)
+	if err != nil {
+		return "", fmt.Errorf("Failed to decode Bearer Token: %v ", err)
+	}
+	adToken := adtoken{}
+	if err := json.Unmarshal(token, &adToken); err != nil {
+		return "", fmt.Errorf("failed to unmarshall CloudShell token: %v ", err)
+	}
+	return adToken.Aud, nil
+}
 func makeCheckAccessRequest(payload []byte, scope string) (bool, error) {
 
 	var err error
@@ -330,13 +351,17 @@ func makeCheckAccessRequest(payload []byte, scope string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("Error Getting CloudShellToken: %v", err)
 	}
+	audUrl, err := getAudFromToken()
+	if err != nil {
+		audUrl = "https://management.azure.com/"
+	}
 retry:
 	for i := 1; i < 4; i++ {
 		timeout := time.Duration(time.Duration(i) * time.Second)
 		client := http.Client{
 			Timeout: timeout,
 		}
-		url := fmt.Sprintf("https://management.azure.com/%s/providers/Microsoft.Authorization/CheckAccess", scope)
+		url := fmt.Sprintf("%s%s/providers/Microsoft.Authorization/CheckAccess", audUrl, scope)
 		log.Debug("Check Access URL: ", url)
 		var req *http.Request
 		req, err = http.NewRequest("POST", url, bytes.NewBuffer(payload))

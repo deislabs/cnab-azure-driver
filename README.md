@@ -112,6 +112,8 @@ Some bundles create outputs, the driver captures these in an Azure File Share, t
 | CNAB_AZURE_LOCATION  	|   The location in which to create the ACI Container Group and Resource Group	|
 | CNAB_AZURE_NAME  	|   The name of the ACI instance to create - if not specified a name will be generated	|
 | CNAB_AZURE_DELETE_RESOURCES  	|  Set to false so as not to delete the RG and ACI container group created, default is true - useful for debugging - only deletes RG if it was created by the driver 	|
+| CNAB_AZURE_CLI_ARM_ENDPOINT        | The URL for the Azure Resource Manager when using from the CLI. This defaults to 'https://management.azure.com/ |
+| CNAB_AZURE_MSI_AUDIENCE        | The 'audience' to include in the Cloud Shell MSI token request. This defaults to 'https://management.azure.com/' but can be changed if needed for clouds other than Azure public. |
 | CNAB_AZURE_MSI_TYPE  	|   This can be set to either `user` or `system` This value is presented to the invocation image container as `AZURE_MSI_TYPE`|
 | CNAB_AZURE_SYSTEM_MSI_ROLE  	|  If `CNAB_AZURE_SYSTEM_MSI_ROLE` is set to `system` this defines the role to be assigned to System MSI User, if this is null or empty then the role defaults to `Contributor`	|
 | CNAB_AZURE_SYSTEM_MSI_SCOPE  	|  If `CNAB_AZURE_SYSTEM_MSI_ROLE` is set to `system` this defines the scope to apply the role to System MSI User - if this is null or empty then the scope will be Resource Group that the ACI Instance is being created |
