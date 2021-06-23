@@ -2,7 +2,7 @@
 
 [![Build Status](https://dev.azure.com/deislabs/cnab-azure-driver/_apis/build/status/deislabs.cnab-azure-driver?branchName=main)](https://dev.azure.com/deislabs/cnab-azure-driver/_build/latest?definitionId=25&branchName=main)
 
-The Azure CNAB Driver enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible 
+The Azure CNAB Driver enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible.
 
 The main purpose of this driver is to enable CNAB operations to be performed using [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/). 
 
