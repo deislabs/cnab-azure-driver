@@ -51,11 +51,6 @@ type cloudrive struct {
 	Size                     int    `json:"diskSizeInGB"`
 }
 
-type adtoken struct {
-	Oid string `json:"oid"`
-	Aud string `json:"aud"`
-}
-
 // FileShareDetails contains details of the clouddrive FileShare
 type FileShareDetails struct {
 	Name               string
@@ -279,8 +274,11 @@ func CheckCanAccessResource(actionID string, scope string) (bool, error) {
 	if !IsInCloudShell() {
 		return false, errors.New("Not Running in CloudShell")
 	}
-
-	oid, err := getOidFromToken()
+	adalToken, err := GetCloudShellToken()
+	if err != nil {
+		return false, fmt.Errorf("Error Getting CloudShellToken: %v", err)
+	}
+	oid, err := getFromToken(adalToken.AccessToken, "oid")
 	if err != nil {
 		return false, fmt.Errorf("failed to get Oid: %v ", err)
 	}
@@ -303,45 +301,24 @@ func CheckCanAccessResource(actionID string, scope string) (bool, error) {
 	log.Debug("Check Access POST Body ", string(payload))
 	return makeCheckAccessRequest(payload, scope)
 }
-func getOidFromToken() (string, error) {
-	adalToken, err := GetCloudShellToken()
-	if err != nil {
-		return "", fmt.Errorf("failed to get CloudShell Token: %s", err)
-	}
-
-	bearerToken := strings.Split(adalToken.AccessToken, ".")[1]
+func getFromToken(accessToken string, parameter string) (string, error) {
+	bearerToken := strings.Split(accessToken, ".")[1]
 	if len(bearerToken) == 0 {
-		return "", fmt.Errorf("Failed to get bearer token from CloudShell Token: %v ", err)
+		return "", errors.New("Failed to get bearer token from CloudShell Token")
 	}
 	token, err := base64.RawStdEncoding.DecodeString(bearerToken)
 	if err != nil {
 		return "", fmt.Errorf("Failed to decode Bearer Token: %v ", err)
 	}
-	adToken := adtoken{}
+	var adToken map[string]interface{}
 	if err := json.Unmarshal(token, &adToken); err != nil {
-		return "", fmt.Errorf("failed to unmarshall CloudShell token: %v ", err)
+		return "", fmt.Errorf("Failed to unmarshall CloudShell token: %v ", err)
 	}
-	return adToken.Oid, nil
-}
-func getAudFromToken() (string, error) {
-	adalToken, err := GetCloudShellToken()
-	if err != nil {
-		return "", fmt.Errorf("failed to get CloudShell Token: %s", err)
+	parameterValue, hasParameter := adToken[parameter]
+	if hasParameter == false {
+		return "", errors.New("Requested token parameter not present")
 	}
-
-	bearerToken := strings.Split(adalToken.AccessToken, ".")[1]
-	if len(bearerToken) == 0 {
-		return "", fmt.Errorf("Failed to get bearer token from CloudShell Token: %v ", err)
-	}
-	token, err := base64.RawStdEncoding.DecodeString(bearerToken)
-	if err != nil {
-		return "", fmt.Errorf("Failed to decode Bearer Token: %v ", err)
-	}
-	adToken := adtoken{}
-	if err := json.Unmarshal(token, &adToken); err != nil {
-		return "", fmt.Errorf("failed to unmarshall CloudShell token: %v ", err)
-	}
-	return adToken.Aud, nil
+	return parameterValue.(string), err
 }
 func makeCheckAccessRequest(payload []byte, scope string) (bool, error) {
 
@@ -351,7 +328,7 @@ func makeCheckAccessRequest(payload []byte, scope string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("Error Getting CloudShellToken: %v", err)
 	}
-	audUrl, err := getAudFromToken()
+	audUrl, err := getFromToken(adalToken.AccessToken, "aud")
 	if err != nil {
 		audUrl = "https://management.azure.com/"
 	}
