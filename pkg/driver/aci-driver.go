@@ -1208,7 +1208,14 @@ func (d *aciDriver) createCredentialEnvVars(env []containerinstance.EnvironmentV
 
 	if d.loginInfo.LoginType == az.CLI {
 		log.Debug("Propagating OAuth Token from cli")
-		t, err := cli.GetTokenFromCLI("https://management.azure.com/")
+
+		ARMEndpoint := os.Getenv("CNAB_AZURE_CLI_ARM_ENDPOINT")
+		if len(ARMEndpoint) == 0 {
+			ARMEndpoint = "https://management.azure.com/"
+		}
+		log.Debug("CLI ARM Endpoint: ", ARMEndpoint)
+
+		t, err := cli.GetTokenFromCLI(ARMEndpoint)
 		if err != nil {
 			return nil, err
 		}
