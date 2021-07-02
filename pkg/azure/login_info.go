@@ -124,6 +124,12 @@ func GetCloudShellToken() (*adal.Token, error) {
 		return nil, errors.New("MSI_ENDPOINT environment variable not set")
 	}
 
+	MSIAudience := os.Getenv("CNAB_AZURE_MSI_AUDIENCE")
+	if len(MSIAudience) == 0 {
+		MSIAudience = "https://management.azure.com/"
+	}
+	log.Debug("CloudShell MSI Audience: ", MSIAudience)
+
 	timeout := time.Duration(1 * time.Second)
 	client := http.Client{
 		Timeout: timeout,
@@ -136,7 +142,7 @@ func GetCloudShellToken() (*adal.Token, error) {
 	req.Header.Set("Metadata", "true")
 	query := req.URL.Query()
 	query.Add("api-version", "2018-02-01")
-	query.Add("resource", "https://management.azure.com/")
+	query.Add("resource", MSIAudience)
 	req.URL.RawQuery = query.Encode()
 	log.Debug("Cloud Shell Token URI: ", req.RequestURI)
 	resp, err := client.Do(req)
