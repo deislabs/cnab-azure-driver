@@ -14,7 +14,7 @@ require (
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/gobuffalo/packr/v2 v2.8.1 // indirect
-	github.com/google/uuid v1.2.0
+	github.com/google/uuid v1.3.0
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/karrick/godirwalk v1.16.1 // indirect
