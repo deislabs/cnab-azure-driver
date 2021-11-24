@@ -4,7 +4,7 @@
 
 The Azure CNAB Driver enables the *installation* of CNAB Bundle using [Azure Container Instance](https://azure.microsoft.com/en-gb/services/container-instances/) as an installation driver, this enables installation of a CNAB bundle from environments where using the Docker driver is impossible 
 
-The main purpose of this driver is to enable CNAB operations to be performed using [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/). 
+One of the purposes of this driver is to enable CNAB operations to be performed using [Azure CloudShell](https://azure.microsoft.com/en-gb/features/cloud-shell/). 
 
 ## Requirements to use the Driver
 
