@@ -26,13 +26,10 @@ require (
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/smartystreets/assertions v1.2.0 // indirect
-	github.com/spf13/cobra v1.1.3
+	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
-	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/go-ini/ini.v1 v1.62.0
-	gopkg.in/ini.v1 v1.62.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
