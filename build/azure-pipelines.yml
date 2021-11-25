@@ -6,10 +6,10 @@ pr:
 trigger: none
 
 pool:
-  vmImage: 'Ubuntu 18.04'
+  vmImage: 'Ubuntu 20.04'
 
 variables:
-  GOVERSION:  '1.14.6'
+  GOVERSION:  '1.17.3'
   System.Debug: true
 
 steps:
