@@ -7,7 +7,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.22
 	github.com/Azure/go-autorest/autorest/adal v0.9.17
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.8
-	github.com/Azure/go-autorest/autorest/azure/cli v0.4.2
+	github.com/Azure/go-autorest/autorest/azure/cli v0.4.4
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/cnabio/cnab-go v0.21.0
@@ -15,7 +15,6 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/gobuffalo/packr/v2 v2.8.1 // indirect
 	github.com/google/uuid v1.3.0
-	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/karrick/godirwalk v1.16.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -25,11 +24,10 @@ require (
 	github.com/rogpeppe/go-internal v1.6.2 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.8.1
-	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	gopkg.in/go-ini/ini.v1 v1.62.0
+	gopkg.in/go-ini/ini.v1 v1.64.0
 )
