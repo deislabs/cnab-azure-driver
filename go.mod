@@ -3,7 +3,7 @@ module github.com/deislabs/cnab-azure-driver
 go 1.14
 
 require (
-	github.com/Azure/azure-sdk-for-go v59.4.0+incompatible
+	github.com/Azure/azure-sdk-for-go v61.6.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.22
 	github.com/Azure/go-autorest/autorest/adal v0.9.17
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.9
@@ -24,7 +24,7 @@ require (
 	github.com/rogpeppe/go-internal v1.6.2 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.8.1
-	github.com/spf13/cobra v1.2.1
+	github.com/spf13/cobra v1.3.0
 	github.com/stretchr/testify v1.7.0
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
