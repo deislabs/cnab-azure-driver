@@ -12,7 +12,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/cnabio/cnab-go v0.22.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
-	github.com/docker/distribution v2.7.1+incompatible
+	github.com/docker/distribution v2.8.0+incompatible
 	github.com/gobuffalo/packr/v2 v2.8.1 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/jonboulle/clockwork v0.2.2 // indirect
