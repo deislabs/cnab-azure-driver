@@ -22,5 +22,5 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/stretchr/testify v1.7.1
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
-	gopkg.in/go-ini/ini.v1 v1.66.4
+	gopkg.in/go-ini/ini.v1 v1.66.5
 )
