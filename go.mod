@@ -10,7 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/cli v0.4.6
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/cnabio/cnab-go v0.24.1
+	github.com/cnabio/cnab-go v0.25.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/docker/distribution v2.8.1+incompatible
 	github.com/google/uuid v1.3.0
